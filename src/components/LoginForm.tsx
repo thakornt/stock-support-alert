@@ -32,8 +32,7 @@ export function LoginForm({ next }: { next: string }) {
     }
   }
 
-  const field =
-    "min-h-11 w-full rounded-lg border border-border bg-background/60 px-3 placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40";
+  const field = "field w-full";
 
   return (
     <form onSubmit={submit} className="space-y-4" noValidate>
@@ -73,7 +72,7 @@ export function LoginForm({ next }: { next: string }) {
             onClick={() => setShow((s) => !s)}
             aria-label={show ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
             aria-pressed={show}
-            className="absolute right-0 top-0 grid size-11 cursor-pointer place-items-center rounded-lg text-muted transition-colors duration-150 hover:text-primary"
+            className="absolute right-0 top-0 grid size-11 cursor-pointer place-items-center rounded-full text-muted transition-colors duration-150 hover:text-primary"
           >
             {show ? <EyeOffIcon className="size-5" /> : <EyeIcon className="size-5" />}
           </button>
@@ -86,7 +85,7 @@ export function LoginForm({ next }: { next: string }) {
 
       <button
         disabled={busy || !username || !password}
-        className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 font-medium text-on-primary transition-[filter,opacity] duration-150 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        className="btn-primary w-full"
       >
         {busy && <Spinner />}
         {busy ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}

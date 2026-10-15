@@ -18,10 +18,10 @@ import { NewspaperIcon } from "./icons";
 import { Spinner } from "./Spinner";
 
 const DIRECTION_CLASS: Record<Direction, string> = {
-  positive: "bg-success/10 text-success ring-success/30",
-  negative: "bg-danger/10 text-danger ring-danger/30",
-  mixed: "bg-warning/10 text-warning ring-warning/30",
-  neutral: "bg-muted/10 text-muted ring-border",
+  positive: "bg-success/12 text-success",
+  negative: "bg-danger/12 text-danger",
+  mixed: "bg-warning/12 text-warning",
+  neutral: "bg-raised text-muted",
 };
 const IMPACT_CLASS: Record<Impact, string> = {
   high: "text-foreground font-semibold",
@@ -34,7 +34,7 @@ const KIND_CLASS: Record<PointKind, string> = {
   inference: "text-muted",
 };
 
-const chip = "inline-flex items-center rounded-md px-2 py-0.5 text-xs ring-1";
+const chip = "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium";
 
 function Sources({ ids, refs }: { ids: number[]; refs: NewsRef[] }) {
   return (
@@ -77,7 +77,7 @@ function Points({ points, refs }: { points: NewsPoint[]; refs: NewsRef[] }) {
 function RefList({ refs }: { refs: NewsRef[] }) {
   if (refs.length === 0) return null;
   return (
-    <details className="mt-3 border-t border-border pt-3">
+    <details className="tile mt-3 px-3 py-2.5">
       <summary className="cursor-pointer text-xs text-muted hover:text-foreground">ข่าวที่ AI อ่าน ({refs.length})</summary>
       <ul className="mt-2 space-y-1.5 text-xs">
         {refs.map((r) => (
@@ -215,7 +215,7 @@ export function NewsPanel({
       </div>
 
       {!readOnly && !ready && (
-        <div role="alert" className="surface border-warning/40 p-4 text-sm">
+        <div role="alert" className="rounded-[1.25rem] bg-warning/10 p-4 text-sm">
           <p className="font-medium text-warning">ยังไม่ได้ตั้งค่า AI</p>
           <p className="mt-1 text-muted">ใช้ค่าเดียวกับหน้า &quot;วิเคราะห์ด้วย AI&quot;: {missing.join(", ")}</p>
         </div>
@@ -227,7 +227,7 @@ export function NewsPanel({
             type="button"
             onClick={run}
             disabled={busy || !ready || left === 0}
-            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-primary px-5 font-medium text-on-primary transition-[filter,opacity] duration-150 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-primary"
           >
             {busy ? <Spinner /> : <NewspaperIcon />}
             {busy ? "กำลังอ่านข่าว…" : "สรุปข่าวตอนนี้"}

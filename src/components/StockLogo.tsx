@@ -25,11 +25,11 @@ export function StockLogo({ symbol, version, className = "size-9" }: { symbol: s
   );
 
   if (version === null || state === "failed") {
-    return <span className={`grid shrink-0 place-items-center rounded-lg bg-elevated ring-1 ring-border ${className}`}>{letter}</span>;
+    return <span className={`grid shrink-0 place-items-center rounded-xl bg-raised ${className}`}>{letter}</span>;
   }
   const loaded = state === "loaded";
   return (
-    <span className={`relative grid shrink-0 place-items-center overflow-hidden rounded-lg bg-elevated ring-1 ring-border ${loaded ? "" : "animate-pulse"} ${className}`}>
+    <span className={`relative grid shrink-0 place-items-center overflow-hidden rounded-xl bg-raised ${loaded ? "" : "animate-pulse"} ${className}`}>
       {!loaded && letter}
       {/* eslint-disable-next-line @next/next/no-img-element -- served by our own route, already small */}
       <img

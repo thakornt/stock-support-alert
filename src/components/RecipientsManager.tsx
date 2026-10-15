@@ -18,13 +18,13 @@ function Avatar({ user }: { user: RecipientRow }) {
         height={44}
         loading="lazy"
         referrerPolicy="no-referrer"
-        className="size-11 shrink-0 rounded-full object-cover ring-1 ring-border"
+        className="size-11 shrink-0 rounded-full bg-raised object-cover"
       />
     );
   }
   const initial = (user.label || user.displayName || "").trim().charAt(0).toUpperCase();
   return (
-    <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-full bg-elevated text-base font-semibold text-muted ring-1 ring-border">
+    <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-full bg-raised text-base font-semibold text-muted">
       {initial || (
         // no name to show (a visitor, or not fetched yet): a plain silhouette
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="size-5">
@@ -51,7 +51,7 @@ function LabelField({ user, disabled, onSave }: { user: RecipientRow; disabled: 
       disabled={disabled}
       placeholder="ชื่อเรียก (เช่น LINE ID)"
       aria-label={`ชื่อเรียกของ ${user.displayName ?? user.idLabel}`}
-      className="min-h-9 w-full max-w-xs rounded-md border border-border bg-background/60 px-2 text-sm placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
+      className="field min-h-9 w-full max-w-xs rounded-lg px-2.5 text-sm disabled:opacity-60"
     />
   );
 }
@@ -66,8 +66,8 @@ function Switch({ on, label, disabled, busy, title, onClick }: { on: boolean; la
       disabled={disabled}
       title={title}
       onClick={onClick}
-      className={`relative h-7 w-12 shrink-0 cursor-pointer rounded-full ring-1 transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
-        on ? "bg-primary/90 ring-primary" : "bg-elevated ring-border"
+      className={`relative h-7 w-12 shrink-0 cursor-pointer rounded-full transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+        on ? "bg-gradient-to-r from-primary to-primary-2" : "bg-elevated"
       }`}
     >
       <span
@@ -80,7 +80,7 @@ function Switch({ on, label, disabled, busy, title, onClick }: { on: boolean; la
 }
 
 const FriendBadge = ({ active }: { active: boolean }) => (
-  <span className={`rounded-full px-2 py-0.5 text-xs ring-1 ${active ? "bg-success/12 text-success ring-success/30" : "bg-elevated text-muted ring-border"}`}>
+  <span className={`rounded-full px-2.5 py-0.5 text-xs ${active ? "bg-success/12 text-success" : "bg-raised text-muted"}`}>
     {active ? "เป็นเพื่อน" : "เลิกเป็นเพื่อนแล้ว"}
   </span>
 );
@@ -96,9 +96,9 @@ function ReadOnlyList({ users, max }: { users: RecipientRow[]; max: number }) {
       {users.length === 0 ? (
         <div className="surface p-8 text-center text-muted">ยังไม่มีผู้รับ</div>
       ) : (
-        <ul className="surface divide-y divide-border">
+        <ul className="space-y-2">
           {users.map((u, i) => (
-            <li key={u.key} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+            <li key={u.key} className="surface flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
               <Avatar user={u} />
               <div className="min-w-0 flex-1 basis-56 space-y-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -223,7 +223,7 @@ function Manager({ users: serverUsers, max }: { users: RecipientRow[]; max: numb
         <button
           onClick={() => request("refresh", "/api/line/users/refresh", { method: "POST" }, "อัปเดตชื่อและรูปจาก LINE แล้ว")}
           disabled={busy !== null}
-          className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm transition-colors duration-150 hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-soft bg-card hover:bg-raised"
         >
           {busy === "refresh" ? <Spinner /> : <RefreshIcon />}
           อัปเดตชื่อจาก LINE
@@ -237,13 +237,13 @@ function Manager({ users: serverUsers, max }: { users: RecipientRow[]; max: numb
       {users.length === 0 ? (
         <div className="surface p-8 text-center text-muted">ยังไม่มีเพื่อน — ให้ผู้รับแอด LINE OA ก่อน</div>
       ) : (
-        <ul className="surface divide-y divide-border">
+        <ul className="space-y-2">
           {users.map((u) => {
             const name = u.displayName ?? "ยังไม่ทราบชื่อ";
             const rowBusy = busy === u.key;
             const cannotEnable = !u.notify && (full || !u.active);
             return (
-              <li key={u.key} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
+              <li key={u.key} className="surface flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
                 <Avatar user={u} />
                 <div className="min-w-0 flex-1 basis-56 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

@@ -31,7 +31,7 @@ function Result({ a }: { a: AnalysisView }) {
           <li key={p.symbol} className="surface p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 font-mono text-sm font-semibold text-primary ring-1 ring-primary/30">
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary-2 font-mono text-sm font-semibold text-on-primary">
                   {p.rank}
                 </span>
                 <h2 className="font-mono text-lg font-semibold tracking-wide">{p.symbol}</h2>
@@ -59,7 +59,7 @@ function Result({ a }: { a: AnalysisView }) {
                 ))}
               </ul>
             )}
-            {p.entryNote && <p className="mt-3 border-t border-border pt-3 text-xs leading-relaxed text-muted">{p.entryNote}</p>}
+            {p.entryNote && <p className="tile mt-3 px-3 py-2.5 text-xs leading-relaxed text-muted">{p.entryNote}</p>}
           </li>
         ))}
       </ol>
@@ -186,7 +186,7 @@ export function AnalysisPanel({
       </div>
 
       {!ready && (
-        <div role="alert" className="surface border-warning/40 p-4 text-sm">
+        <div role="alert" className="rounded-[1.25rem] bg-warning/10 p-4 text-sm">
           <p className="font-medium text-warning">ยังไม่ได้ตั้งค่า AI</p>
           <p className="mt-1 text-muted">
             เพิ่ม environment variable{" "}
@@ -212,12 +212,15 @@ export function AnalysisPanel({
                 type="button"
                 aria-pressed={on}
                 onClick={() => toggle(g.id)}
-                className={`cursor-pointer rounded-xl border px-3 py-2.5 text-left transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
-                  on ? "border-primary/50 bg-primary/10" : "border-border bg-card hover:border-primary/40"
+                className={`cursor-pointer rounded-2xl px-4 py-3 text-left transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  on ? "bg-foreground text-background" : "bg-card hover:bg-raised"
                 }`}
               >
-                <span className={`block text-sm font-medium ${on ? "text-primary" : ""}`}>{g.label}</span>
-                <span className="mt-0.5 block text-xs leading-relaxed text-muted">{g.hint}</span>
+                <span className="flex items-center gap-1.5 text-sm font-medium">
+                  {on && <CheckIcon className="size-4 shrink-0" />}
+                  {g.label}
+                </span>
+                <span className={`mt-0.5 block text-xs leading-relaxed ${on ? "text-background/70" : "text-muted"}`}>{g.hint}</span>
               </button>
             );
           })}
@@ -229,7 +232,7 @@ export function AnalysisPanel({
           type="button"
           onClick={run}
           disabled={busy || !ready || left === 0}
-          className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-primary px-5 font-medium text-on-primary transition-[filter,opacity] duration-150 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-primary"
         >
           {busy ? <Spinner /> : <SparklesIcon />}
           {busy ? "กำลังวิเคราะห์…" : "วิเคราะห์ด้วย AI"}
@@ -239,7 +242,7 @@ export function AnalysisPanel({
           onClick={copyPrompt}
           disabled={busy || copy === "busy"}
           title="คัดลอกคำสั่งและข้อมูลชุดเดียวกัน ไปวางในแชท AI ที่ใช้อยู่ (ไม่ใช้โควตา)"
-          className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm transition-colors duration-150 hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-soft bg-card hover:bg-raised"
         >
           {copy === "busy" ? <Spinner /> : copy === "copied" ? <CheckIcon /> : <CopyIcon />}
           <span aria-live="polite">{copy === "copied" ? "คัดลอกแล้ว วางในแชท AI ได้เลย" : "คัดลอกไปถาม AI เอง"}</span>
@@ -255,7 +258,7 @@ export function AnalysisPanel({
               value={model}
               onChange={(e) => setModel(e.target.value)}
               disabled={busy}
-              className="min-h-11 cursor-pointer rounded-lg border border-border bg-card px-2 font-mono text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
+              className="field cursor-pointer bg-card px-3 font-mono text-foreground disabled:cursor-not-allowed disabled:opacity-60"
             >
               {models.map((m, i) => (
                 <option key={m} value={m}>

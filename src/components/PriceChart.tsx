@@ -147,7 +147,7 @@ function Chart({ data, levels, symbol, width: W }: { data: ChartData; levels: { 
 /** Shown while a range loads: the outline of a chart, pulsing, with a spinner, so the space is visibly busy. */
 function ChartSkeleton() {
   return (
-    <div role="status" className="absolute inset-0 overflow-hidden rounded-lg border border-border/60 bg-elevated/40">
+    <div role="status" className="absolute inset-0 overflow-hidden rounded-xl bg-raised">
       <svg viewBox="0 0 320 120" preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 size-full animate-pulse text-muted">
         <path d="M0,88 C30,80 45,60 70,66 S110,92 140,70 S190,30 220,44 S270,70 320,36" fill="none" stroke="currentColor" strokeOpacity="0.35" strokeWidth="2" vectorEffect="non-scaling-stroke" />
         {[52, 74, 92].map((y) => (
@@ -199,7 +199,7 @@ export function PriceChart({ symbol, levels }: { symbol: string; levels: { tier:
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-muted">ราคาปิด{data?.weekly ? "รายสัปดาห์" : "รายวัน"}</span>
-        <div role="radiogroup" aria-label="ช่วงเวลาของกราฟ" className="flex rounded-lg border border-border bg-background/60 p-0.5">
+        <div role="radiogroup" aria-label="ช่วงเวลาของกราฟ" className="flex rounded-full bg-raised p-0.5">
           {RANGES.map((r) => (
             <button
               key={r.id}
@@ -207,8 +207,8 @@ export function PriceChart({ symbol, levels }: { symbol: string; levels: { tier:
               role="radio"
               aria-checked={range === r.id}
               onClick={() => setRange(r.id)}
-              className={`min-h-9 min-w-11 cursor-pointer rounded-md px-2 font-mono text-xs transition-colors duration-150 ${
-                range === r.id ? "bg-primary/15 text-primary" : "text-muted hover:text-foreground"
+              className={`min-h-9 min-w-11 cursor-pointer rounded-full px-2.5 font-mono text-xs transition-colors duration-150 ${
+                range === r.id ? "bg-foreground font-medium text-background" : "text-muted hover:text-foreground"
               }`}
             >
               {r.label}

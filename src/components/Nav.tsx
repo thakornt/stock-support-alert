@@ -48,7 +48,7 @@ function LogoutButton({ className = "" }: { className?: string }) {
     <button
       onClick={logout}
       disabled={busy}
-      className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm text-muted transition-colors duration-150 hover:bg-elevated hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-full px-3 text-sm text-muted transition-colors duration-150 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     >
       {busy ? <Spinner /> : <LogOutIcon />}
       <span className="whitespace-nowrap">ออกจากระบบ</span>
@@ -63,7 +63,7 @@ function AccountButton({ owner, pathname, className = "" }: { owner: boolean; pa
   return (
     <Link
       href={href}
-      className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm text-muted transition-colors duration-150 hover:bg-elevated hover:text-foreground ${className}`}
+      className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-full px-3 text-sm text-muted transition-colors duration-150 hover:text-foreground ${className}`}
     >
       <LogInIcon />
       <span className="whitespace-nowrap">เข้าสู่ระบบ</span>
@@ -161,25 +161,28 @@ export function Nav({ owner }: { owner: boolean }) {
 
   if (pathname === "/login") return null; // the login page stands alone (it links back to the site)
 
+  // Active = bright text plus a short bar (under the label in the top bar, beside it in the drawer); no box around it.
   const linkClass = (active: boolean, size: string) =>
-    `flex cursor-pointer items-center rounded-lg px-3 transition-colors duration-150 ${size} ${
-      active ? "bg-primary/10 text-primary ring-1 ring-primary/25" : "text-muted hover:bg-elevated hover:text-foreground"
+    `relative flex cursor-pointer items-center px-3 transition-colors duration-150 ${size} ${
+      active ? "font-medium text-foreground [&_svg]:text-primary" : "text-muted hover:text-foreground"
     }`;
+  const bar = "pointer-events-none absolute rounded-full bg-gradient-to-r from-primary to-primary-2 transition-opacity duration-200";
 
   return (
     <>
-      <header className="sticky top-0 z-30 h-14 border-b border-border bg-background/80 backdrop-blur">
+      <header className="sticky top-0 z-30 h-14 bg-background/75 backdrop-blur-xl">
         <div className="mx-auto flex h-full max-w-5xl items-center gap-x-2 px-4">
           <Brand onClick={close} />
 
           {/* wide screens: the menu stays in the bar */}
-          <nav aria-label="เมนูหลัก" className="ml-3 hidden flex-1 items-center gap-x-2 xl:flex">
+          <nav aria-label="เมนูหลัก" className="ml-3 hidden flex-1 items-center gap-x-1 xl:flex">
             {links.map((l) => {
               const active = isActive(l.href, pathname);
               return (
                 <Link key={l.href} href={l.href} aria-current={active ? "page" : undefined} className={linkClass(active, "min-h-11 gap-2 text-sm")}>
                   <NavIcon icon={l.icon} />
                   <span className="whitespace-nowrap">{owner ? l.label : (l.visitorLabel ?? l.label)}</span>
+                  <span aria-hidden="true" className={`${bar} inset-x-3 bottom-0.5 h-[3px] ${active ? "opacity-100" : "opacity-0"}`} />
                 </Link>
               );
             })}
@@ -194,7 +197,7 @@ export function Nav({ owner }: { owner: boolean }) {
             aria-label={open ? "ปิดเมนู" : "เปิดเมนู"}
             aria-expanded={open}
             aria-controls="mobile-menu"
-            className={`ml-auto grid size-11 cursor-pointer place-items-center rounded-lg transition-colors duration-200 hover:bg-elevated xl:hidden ${
+            className={`ml-auto grid size-11 cursor-pointer place-items-center rounded-full transition-colors duration-200 hover:bg-card xl:hidden ${
               open ? "text-primary" : "text-foreground"
             }`}
           >
@@ -217,11 +220,11 @@ export function Nav({ owner }: { owner: boolean }) {
         ref={drawerRef}
         id="mobile-menu"
         inert={!open}
-        className={`fixed bottom-0 left-0 top-14 z-20 flex w-72 max-w-[85vw] flex-col border-r border-border bg-card shadow-2xl shadow-black/50 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] xl:hidden ${
+        className={`fixed bottom-0 left-0 top-14 z-20 flex w-72 max-w-[85vw] flex-col rounded-tr-3xl bg-card shadow-2xl shadow-black/50 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] xl:hidden ${
           open ? "translate-x-0" : "-translate-x-full invisible"
         }`}
       >
-        <nav aria-label="เมนูหลัก" className="flex-1 space-y-1 overflow-y-auto p-3">
+        <nav aria-label="เมนูหลัก" className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {links.map((l) => {
             const active = isActive(l.href, pathname);
             return (
@@ -234,11 +237,12 @@ export function Nav({ owner }: { owner: boolean }) {
               >
                 <NavIcon icon={l.icon} />
                 <span>{owner ? l.label : (l.visitorLabel ?? l.label)}</span>
+                <span aria-hidden="true" className={`${bar} -left-3 inset-y-3 w-1 rounded-l-none bg-gradient-to-b ${active ? "opacity-100" : "opacity-0"}`} />
               </Link>
             );
           })}
         </nav>
-        <div className="border-t border-border p-3">
+        <div className="p-3 pb-5">
           <AccountButton owner={owner} pathname={pathname} className="min-h-12 w-full text-base" />
         </div>
       </div>

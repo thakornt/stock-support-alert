@@ -46,12 +46,12 @@ export function AnalystPanel({
   const at = (v: number) => (range ? `${((v - range.lo) / (range.hi - range.lo)) * 100}%` : "0%");
 
   return (
-    <section aria-label="มุมมองนักวิเคราะห์" className="space-y-4 rounded-xl border border-border bg-background/40 px-3 py-3">
+    <section aria-label="มุมมองนักวิเคราะห์" className="tile space-y-4 px-3.5 py-3.5">
       <h3 className="text-sm font-medium">มุมมองนักวิเคราะห์</h3>
 
       {total > 0 && (
         <div className="space-y-1.5">
-          <div className="flex h-2 overflow-hidden rounded-full bg-elevated" role="img" aria-label={`ซื้อ ${buy} ถือ ${hold} ขาย ${sell}`}>
+          <div className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-elevated" role="img" aria-label={`ซื้อ ${buy} ถือ ${hold} ขาย ${sell}`}>
             <span className="bg-success" style={{ width: `${(buy / total) * 100}%` }} />
             <span className="bg-muted/50" style={{ width: `${(hold / total) * 100}%` }} />
             <span className="bg-danger" style={{ width: `${(sell / total) * 100}%` }} />
@@ -75,7 +75,7 @@ export function AnalystPanel({
             role="img"
             aria-label={`ราคาเป้าหมายต่ำสุด ${usd(low)} เฉลี่ย ${usd(mean)} สูงสุด ${usd(high)} ราคาตอนนี้ ${usd(now)}`}
           >
-            <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
+            <span className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-elevated" />
             {/* the analysts' range */}
             <span className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-primary/30" style={{ left: at(low), width: `calc(${at(high)} - ${at(low)})` }} />
             {/* support levels */}
@@ -85,7 +85,7 @@ export function AnalystPanel({
             {/* average target */}
             <span className="absolute top-1/2 h-4 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary" style={{ left: at(mean) }} />
             {/* today */}
-            <span className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground ring-2 ring-background" style={{ left: at(now) }} />
+            <span className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground shadow-[0_0_0_3px_var(--raised)]" style={{ left: at(now) }} />
           </div>
           <dl className="grid grid-cols-3 gap-2 text-xs">
             <div>

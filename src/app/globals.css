@@ -1,19 +1,21 @@
 @import "tailwindcss";
 
 /*
- * Fintech / crypto dark theme: deep navy surfaces, cyan primary (secure / technical),
- * emerald for "ok", amber -> orange -> red for the three support tiers.
- * Text/background pairs are >= 4.5:1. Tokens only; components never use raw hex.
+ * Dark navy theme, cyan primary, emerald for "ok", amber -> orange -> red for the three support tiers.
+ * Surfaces are told apart by tone alone (no borders): background < card < raised. Text/background pairs are >= 4.5:1.
+ * Tokens only; components never use raw hex.
  */
 :root {
   color-scheme: dark;
   --background: #0a0f1c;
   --foreground: #e6edf7;
-  --card: #0f1626;
-  --elevated: #151f35;
+  --card: #111a2c;
+  --raised: #18233a;
+  --elevated: #1f2c46;
   --border: #1e2a42;
   --muted: #8fa3bf;
   --primary: #22d3ee;
+  --primary-2: #60a5fa;
   --on-primary: #03222b;
   --success: #34d399;
   --warning: #fbbf24;
@@ -25,10 +27,12 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
+  --color-raised: var(--raised);
   --color-elevated: var(--elevated);
   --color-border: var(--border);
   --color-muted: var(--muted);
   --color-primary: var(--primary);
+  --color-primary-2: var(--primary-2);
   --color-on-primary: var(--on-primary);
   --color-success: var(--success);
   --color-warning: var(--warning);
@@ -45,28 +49,94 @@ body {
   line-height: 1.5;
 }
 
-/* Faint blueprint grid + top glow; purely decorative, fixed so it never causes layout shift. */
+/* One soft wash of colour at the top of the page; fixed so it never causes layout shift. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(60rem 28rem at 50% -8rem, color-mix(in srgb, var(--primary) 14%, transparent), transparent 70%),
-    linear-gradient(color-mix(in srgb, var(--primary) 5%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--primary) 5%, transparent) 1px, transparent 1px);
-  background-size: auto, 44px 44px, 44px 44px;
-  mask-image: linear-gradient(to bottom, #000, transparent 85%);
+  background: radial-gradient(70rem 30rem at 50% -12rem, color-mix(in srgb, var(--primary-2) 10%, transparent), transparent 70%);
 }
 
 @layer components {
-  /* Elevated panel used for every card/table so the look stays consistent. */
+  /* Card: a flat tile one tone above the page. */
   .surface {
-    background: linear-gradient(180deg, var(--elevated), var(--card));
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+    background: var(--card);
+    border-radius: 1.25rem;
+  }
+
+  /* Rows and blocks inside a card: one more tone up. */
+  .tile {
+    background: var(--raised);
+    border-radius: 0.875rem;
+  }
+
+  /* The one action that matters on a screen. */
+  .btn-primary {
+    display: inline-flex;
+    min-height: 2.75rem;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding-inline: 1.375rem;
+    font-weight: 600;
+    color: var(--on-primary);
+    background: linear-gradient(100deg, var(--primary), var(--primary-2));
+    box-shadow: 0 8px 24px -10px color-mix(in srgb, var(--primary) 70%, transparent);
+    transition: filter 150ms, opacity 150ms, transform 150ms;
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  .btn-primary:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+    box-shadow: none;
+  }
+
+  /* Everything else that is a button: a filled pill in the card tone. */
+  .btn-soft {
+    display: inline-flex;
+    min-height: 2.75rem;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding-inline: 1.125rem;
+    font-size: 0.875rem;
+    background: var(--raised);
+    transition: background-color 150ms, color 150ms, opacity 150ms;
+  }
+  .btn-soft:hover:not(:disabled) {
+    background: var(--elevated);
+  }
+  .btn-soft:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /* Text fields: filled, no outline until focused. */
+  .field {
+    min-height: 2.75rem;
+    border-radius: 0.75rem;
+    background: var(--raised);
+    padding-inline: 0.875rem;
+    transition: box-shadow 150ms, background-color 150ms;
+  }
+  .field::placeholder {
+    color: var(--muted);
+  }
+  .field:focus {
+    outline: none;
+    background: var(--elevated);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 55%, transparent);
   }
 }
 

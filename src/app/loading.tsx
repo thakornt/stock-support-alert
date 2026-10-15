@@ -4,7 +4,7 @@
  * looks frozen. Shapes mirror the real pages to avoid layout shift when content arrives.
  */
 function Bar({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-md bg-elevated motion-reduce:animate-none ${className}`} />;
+  return <div className={`animate-pulse rounded-lg bg-raised motion-reduce:animate-none ${className}`} />;
 }
 
 export default function Loading() {

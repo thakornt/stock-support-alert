@@ -20,10 +20,10 @@ interface Props {
 function ReadOnlyList({ initial, subscribers }: Pick<Props, "initial" | "subscribers">) {
   return (
     <div className="space-y-4">
-      <ul className="surface grid gap-x-4 divide-y divide-border sm:grid-cols-2 sm:divide-y-0">
-        {initial.length === 0 && <li className="p-4 text-muted">ยังไม่มีหุ้น</li>}
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {initial.length === 0 && <li className="surface p-4 text-muted">ยังไม่มีหุ้น</li>}
         {initial.map(({ symbol: s, logoVersion }) => (
-          <li key={s} className="flex items-center gap-3 px-4 py-2.5">
+          <li key={s} className="surface flex items-center gap-3 rounded-2xl px-4 py-2.5">
             <StockLogo symbol={s} version={logoVersion} className="size-8" />
             <span className="font-mono text-base font-semibold tracking-wide">{s}</span>
           </li>
@@ -93,11 +93,11 @@ function Manager({ initial, max, subscribers }: Props) {
           placeholder="เช่น NVDA"
           maxLength={10}
           autoComplete="off"
-          className="min-h-11 w-44 rounded-lg border border-border bg-card px-3 font-mono uppercase tracking-wide placeholder:normal-case placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="field w-44 bg-card font-mono uppercase tracking-wide placeholder:normal-case"
         />
         <button
           disabled={busy || full}
-          className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-primary px-4 font-medium text-on-primary transition-[filter,opacity] duration-150 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-primary"
         >
           {busy ? <Spinner /> : <PlusIcon />}
           {busy ? "กำลังทำงาน…" : "เพิ่ม"}
@@ -113,10 +113,10 @@ function Manager({ initial, max, subscribers }: Props) {
         )}
       </div>
 
-      <ul className="surface divide-y divide-border">
-        {initial.length === 0 && <li className="p-4 text-muted">ยังไม่มีหุ้น</li>}
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {initial.length === 0 && <li className="surface p-4 text-muted">ยังไม่มีหุ้น</li>}
         {initial.map(({ symbol: s, logoVersion }) => (
-          <li key={s} className="flex items-center justify-between px-4 py-1.5">
+          <li key={s} className="surface flex items-center justify-between rounded-2xl py-1.5 pl-4 pr-1.5">
             <span className="flex items-center gap-3">
               <StockLogo symbol={s} version={logoVersion} className="size-8" />
               <span className="font-mono text-base font-semibold tracking-wide">{s}</span>
@@ -127,7 +127,7 @@ function Manager({ initial, max, subscribers }: Props) {
                 confirm(`ลบ ${s}?`) && call(`/api/symbols/${encodeURIComponent(s)}`, { method: "DELETE" }, `ลบ ${s} แล้ว`)
               }
               aria-label={`ลบ ${s}`}
-              className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm text-danger transition-colors duration-150 hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-sm text-danger transition-colors duration-150 hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <TrashIcon />
               ลบ
@@ -147,7 +147,7 @@ function Manager({ initial, max, subscribers }: Props) {
         <button
           disabled={busy || subscribers === 0}
           onClick={() => call("/api/line/test", { method: "POST" }, "ส่งข้อความทดสอบแล้ว")}
-          className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-4 transition-colors duration-150 hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-soft mt-3"
         >
           {busy ? <Spinner /> : <SendIcon />}
           ส่งข้อความทดสอบ

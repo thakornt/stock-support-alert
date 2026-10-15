@@ -20,7 +20,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
       {error.digest && <p className="font-mono text-xs text-muted">รหัสอ้างอิง: {error.digest}</p>}
       <button
         onClick={reset}
-        className="min-h-11 cursor-pointer rounded-lg bg-primary px-5 font-medium text-on-primary transition-[filter] duration-150 hover:brightness-110"
+        className="btn-primary"
       >
         ลองใหม่
       </button>

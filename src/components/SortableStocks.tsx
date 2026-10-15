@@ -93,7 +93,7 @@ function CopyButton({ text }: { text: () => string }) {
           () => setState("failed"),
         );
       }}
-      className="flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-xs font-normal text-muted transition-colors hover:bg-elevated hover:text-foreground"
+      className="flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-xs font-normal text-muted transition-colors hover:bg-elevated hover:text-foreground"
     >
       {state === "copied" ? <CheckIcon /> : <CopyIcon />}
       <span aria-live="polite">{state === "copied" ? "คัดลอกแล้ว" : state === "failed" ? "คัดลอกไม่ได้" : "คัดลอก"}</span>
@@ -121,7 +121,7 @@ function ProfileSection({
     return <p className="text-xs text-muted">ข้อมูลพื้นฐานและความเสี่ยงจะแสดงหลังรอบอัปเดตรายวัน</p>;
   }
   return (
-    <details open className="group rounded-xl border border-border bg-background/40">
+    <details open className="group tile">
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
         <span className="flex-1">ข้อมูลพื้นฐานและความเสี่ยง</span>
         {copyable && <CopyButton text={() => profileText(symbol, price, today, view)} />}
@@ -129,10 +129,10 @@ function ProfileSection({
           <path d="m6 9 6 6 6-6" />
         </svg>
       </summary>
-      <dl className="divide-y divide-border border-t border-border">
+      <dl className="space-y-1 px-1.5 pb-1.5">
         {/* analysts and targets have their own panel above (the copied text still has them) */}
         {view.lines.filter((l) => l.key !== "analysts" && l.key !== "target").map((l) => (
-          <div key={l.key} className="px-3 py-2.5">
+          <div key={l.key} className="rounded-[0.625rem] bg-card/70 px-3 py-2.5">
             <div className="flex items-baseline justify-between gap-3">
               <dt className="flex items-center gap-1.5 text-xs text-muted">
                 {l.caution && <span aria-label="ควรระวัง" className="size-1.5 shrink-0 rounded-full bg-warning" />}
@@ -144,7 +144,7 @@ function ProfileSection({
           </div>
         ))}
       </dl>
-      {view.footnote && <p className="border-t border-border px-3 py-2 text-[11px] leading-relaxed text-muted">{view.footnote}</p>}
+      {view.footnote && <p className="px-3 pb-3 pt-1 text-[11px] leading-relaxed text-muted">{view.footnote}</p>}
     </details>
   );
 }
@@ -197,13 +197,13 @@ function StockCard({
       </div>
 
       {brk && stillBroken && (
-        <p className="mt-4 rounded-xl bg-danger/10 px-3 py-2 text-xs leading-relaxed text-danger ring-1 ring-danger/25">
+        <p className="mt-4 rounded-xl bg-danger/10 px-3 py-2 text-xs leading-relaxed text-danger">
           {TIER_LABEL_TH[brk.tier]} {usd(brk.level)} ({METHOD_LABEL[brk.method] ?? brk.method}) หลุดเมื่อ{" "}
           {formatDateString(brk.resolvedOn!)} — {s.levels.length > 0 ? "ระดับที่แสดงด้านล่างคือระดับถัดลงไป" : "ไม่มีแนวรับเหลือด้านล่าง ราคาต่ำกว่าทุกระดับที่คำนวณได้ จะไม่มีแจ้งเตือนของหุ้นนี้จนกว่าจะเกิดแนวรับใหม่"}
         </p>
       )}
       {pending && (
-        <p className="mt-4 rounded-xl bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning ring-1 ring-warning/25">
+        <p className="mt-4 rounded-xl bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning">
           ราคาต่ำกว่า{TIER_LABEL_TH[pending.tier]}
           {s.levels.some((l) => l.tier === pending.tier && Math.abs(l.price - pending.level) / pending.level < 0.002) ? "" : "เดิม"}{" "}
           {usd(pending.level)} ({METHOD_LABEL[pending.method] ?? pending.method}) ที่แตะเมื่อ {formatDateString(pending.touchedOn)} — ยังไม่นับว่าหลุด:
@@ -220,12 +220,12 @@ function StockCard({
           <p className="mt-4 text-sm text-muted">ยังไม่มีแนวรับ (รอรอบคำนวณรายวัน)</p>
         )
       ) : (
-        <ul className="mt-4 divide-y divide-border rounded-xl border border-border bg-background/40">
+        <ul className="mt-4 space-y-1">
           {s.levels.map((l) => {
             const dist = s.price !== null ? ((s.price - l.price) / l.price) * 100 : null;
             const touched = s.price !== null && s.price <= l.price * (1 + DEFAULT_RULES.touchTolerance);
             return (
-              <li key={l.tier} className="flex items-center gap-3 px-3 py-2">
+              <li key={l.tier} className="tile flex min-h-11 items-center gap-3 px-3 py-1.5">
                 <span className="w-28 shrink-0">
                   <TierBadge tier={l.tier} />
                 </span>
@@ -233,7 +233,7 @@ function StockCard({
                 <span className="text-right font-mono text-sm tabular-nums">
                   {touched ? (
                     <span className="flex flex-col items-end gap-0.5">
-                      <span className="rounded-md bg-danger/15 px-2 py-0.5 font-sans text-xs font-semibold text-danger ring-1 ring-danger/30">
+                      <span className="rounded-full bg-danger px-2.5 py-0.5 font-sans text-xs font-semibold text-background">
                         แตะแล้ว
                       </span>
                       {/* the dashboard shows every tier; only ALERT_TIERS push to LINE */}
@@ -267,7 +267,7 @@ function CardDetails({ stock: s, today, readOnly }: { stock: StockCardData; toda
   return (
     // suppressHydrationWarning: a visitor may open it before React has loaded; that `open` is theirs, not a mismatch
     <details ref={ref} className="group/details mt-3" onToggle={(e) => setOpen(e.currentTarget.open)} suppressHydrationWarning>
-      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg px-1 text-sm text-muted transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full px-1 text-sm text-muted transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true" className="size-4 transition-transform duration-200 group-open/details:rotate-90">
           <path d="m9 6 6 6-6 6" />
         </svg>
@@ -282,11 +282,11 @@ function CardDetails({ stock: s, today, readOnly }: { stock: StockCardData; toda
           <AnalystPanel profile={s.profile} price={s.price} levels={s.levels.map((l) => ({ tier: l.tier, price: l.price }))} today={today} />
 
           {s.levels.length > 0 && (
-            <dl className="divide-y divide-border rounded-xl border border-border bg-background/40">
+            <dl className="tile space-y-1 p-1.5">
               {s.levels.map((l) => {
                 const record = recordText(s.track.records[l.tier]);
                 return (
-                  <div key={l.tier} className="space-y-0.5 px-3 py-2.5">
+                  <div key={l.tier} className="space-y-0.5 rounded-[0.625rem] bg-card/70 px-3 py-2.5">
                     <dt className="flex flex-wrap items-baseline gap-x-2 text-sm">
                       <span className="font-medium">{TIER_LABEL_TH[l.tier]}</span>
                       <span className="font-mono tabular-nums">{usd(l.price)}</span>
@@ -301,7 +301,7 @@ function CardDetails({ stock: s, today, readOnly }: { stock: StockCardData; toda
                 );
               })}
               {s.track.since && (
-                <p className="px-3 py-2 text-[11px] text-muted">สถิติย้อนหลังนับตั้งแต่ {formatDateString(s.track.since)} (คำอธิบายอยู่ด้านบนของหน้า)</p>
+                <p className="px-3 pb-1.5 pt-1 text-[11px] text-muted">สถิติย้อนหลังนับตั้งแต่ {formatDateString(s.track.since)} (คำอธิบายอยู่ด้านบนของหน้า)</p>
               )}
             </dl>
           )}
@@ -326,7 +326,7 @@ function SortableCard({ stock, live, today }: { stock: StockCardData; live?: Pri
     <section
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`surface p-5 ${isDragging ? "z-20 scale-[1.02] shadow-2xl shadow-black/60 ring-2 ring-primary/60" : ""}`}
+      className={`surface p-5 ${isDragging ? "z-20 scale-[1.02] bg-raised shadow-2xl shadow-black/60" : ""}`}
     >
       <StockCard
         stock={stock}
@@ -344,7 +344,7 @@ function SortableCard({ stock, live, today }: { stock: StockCardData; live?: Pri
             {...attributes}
             {...listeners}
             aria-label={`ลากเพื่อจัดลำดับ ${stock.symbol}`}
-            className={`-mr-3 -mt-2 grid size-11 shrink-0 touch-none place-items-center rounded-lg text-muted transition-colors duration-150 hover:bg-elevated hover:text-primary ${
+            className={`-mr-3 -mt-2 grid size-11 shrink-0 touch-none place-items-center rounded-full text-muted transition-colors duration-150 hover:bg-raised hover:text-foreground ${
               isDragging ? "cursor-grabbing text-primary" : "cursor-grab"
             }`}
           >
@@ -461,7 +461,7 @@ export function SortableStocks({ initial, today, readOnly = false }: { initial: 
             type="button"
             onClick={refreshPrices}
             disabled={priceState === "loading"}
-            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-4 transition-colors duration-150 hover:border-primary/50 hover:text-primary disabled:cursor-wait disabled:opacity-70"
+            className="btn-soft bg-card hover:bg-raised disabled:cursor-wait"
           >
             {priceState === "loading" ? <Spinner className="text-primary" /> : <RefreshIcon />}
             {priceState === "loading" ? "กำลังดึงราคาสด…" : "รีเฟรชราคา"}

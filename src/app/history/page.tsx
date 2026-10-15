@@ -22,7 +22,7 @@ export default async function HistoryPage() {
       ) : (
         <div className="surface overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase tracking-wide text-muted">
+            <thead className="text-left text-xs text-muted">
               <tr>
                 <th className="px-4 py-3 font-medium">เวลา (ไทย)</th>
                 <th className="px-4 py-3 font-medium">หุ้น</th>
@@ -33,7 +33,7 @@ export default async function HistoryPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-t border-border transition-colors duration-150 hover:bg-elevated/60">
+                <tr key={r.id} className="transition-colors duration-150 odd:bg-raised/50 hover:bg-raised">
                   <td className="whitespace-nowrap px-4 py-3 text-muted">{formatDateTime(r.sentAt)}</td>
                   <td className="px-4 py-3 font-mono font-semibold">{r.symbol}</td>
                   <td className="px-4 py-3"><TierBadge tier={r.tier} /></td>
