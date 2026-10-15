@@ -23,7 +23,7 @@ import { apiFetch } from "@/lib/apiFetch";
 import { formatDateString, formatDateTime } from "@/lib/format/datetime";
 import { describeProfile, profileText, type ProfileData } from "@/lib/profile/describe";
 import type { PriceEntry } from "@/lib/stock/live";
-import type { TierRecord, TrackSummary } from "@/lib/support/track";
+import { pendingBreak, type TierRecord, type TrackSummary } from "@/lib/support/track";
 import { METHOD_LABEL, TIER_LABEL_TH, type Method, type Tier } from "@/lib/support/types";
 import { CheckIcon, CopyIcon, GripIcon, RefreshIcon } from "./icons";
 import { Spinner } from "./Spinner";
@@ -170,6 +170,9 @@ function StockCard({
   // A level that broke but that the price has since climbed back above is support again: don't call it broken.
   const brk = s.track.recentBreak;
   const stillBroken = brk !== null && (s.price === null || s.price < Math.min(brk.level, brk.zoneLow ?? brk.level));
+  // under a level that was touched lately and is not decided yet (the recalculation may have moved the levels since)
+  const under = pendingBreak(s.track.openTouches, s.price);
+  const pending = under && !(brk && stillBroken && brk.level === under.level) ? under : null;
   const priceLabel = live
     ? `ราคา ณ ${live.asOf ? formatDateTime(new Date(live.asOf)) : "—"} · ${SOURCE_LABEL[live.source]}${live.stale ? " (ค่าเก่า)" : ""}`
     : s.quoteTimeLabel
@@ -195,6 +198,14 @@ function StockCard({
         <p className="mt-4 rounded-xl bg-danger/10 px-3 py-2 text-xs leading-relaxed text-danger ring-1 ring-danger/25">
           {TIER_LABEL_TH[brk.tier]} {usd(brk.level)} ({METHOD_LABEL[brk.method] ?? brk.method}) หลุดเมื่อ{" "}
           {formatDateString(brk.resolvedOn!)} — ระดับที่แสดงด้านล่างคือระดับถัดลงไป
+        </p>
+      )}
+      {pending && (
+        <p className="mt-4 rounded-xl bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning ring-1 ring-warning/25">
+          ราคาต่ำกว่า{TIER_LABEL_TH[pending.tier]}
+          {s.levels.some((l) => l.tier === pending.tier && Math.abs(l.price - pending.level) / pending.level < 0.002) ? "" : "เดิม"}{" "}
+          {usd(pending.level)} ({METHOD_LABEL[pending.method] ?? pending.method}) ที่แตะเมื่อ {formatDateString(pending.touchedOn)} — ยังไม่นับว่าหลุด:
+          จะนับว่าหลุดถ้าราคาปิดต่ำกว่า {usd(pending.floor)} และรับได้ถ้าปิดกลับเหนือ {usd(pending.bounce)} (ภายใน 20 วันทำการนับจากวันที่แตะ)
         </p>
       )}
       {s.levels.length === 0 ? (

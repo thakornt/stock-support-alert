@@ -1,14 +1,16 @@
 import { after, NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/auth";
-import { collectNews, NewsError, runNewsBrief } from "@/lib/jobs/news";
+import { briefCatchUpDue, collectNews, NewsError, runNewsBrief } from "@/lib/jobs/news";
 
 export const dynamic = "force-dynamic";
 /** Collecting reads up to ~100 article pages; the brief adds one long AI call. */
 export const maxDuration = 300;
 
 /**
- * Called by a scheduler (cron-job.org). Plain call: collect the latest news (hourly). `?mode=brief`: collect, then the
- * AI news brief, once per trading day (schedule it before the open, e.g. 08:30 New York); `?force=1` runs it anyway.
+ * Called by a scheduler (cron-job.org). Plain call: collect the latest news (hourly); on a trading day before 16:00 New
+ * York while the day's brief has not succeeded yet, it makes the brief instead (which collects first), so a failed
+ * 08:30 run is retried every hour. `?mode=brief`: the brief, once per trading day (schedule it before the open, e.g.
+ * 08:30 New York); `?force=1` runs it anyway.
  * `?async=1` answers 202 at once and works in the background (the result is in the function log).
  */
 export async function POST(request: Request) {
@@ -17,8 +19,10 @@ export async function POST(request: Request) {
   const brief = params.get("mode") === "brief";
   const force = params.get("force") === "1";
   const run = async () => {
-    if (!brief) return collectNews();
-    const view = await runNewsBrief({ trigger: "schedule", force });
+    const catchUp = !brief && (await briefCatchUpDue().catch(() => false));
+    if (!brief && !catchUp) return collectNews();
+    const view = await runNewsBrief({ trigger: "schedule", force: brief && force });
+    if (catchUp) console.log("news: the day's brief was missing, made it in the hourly run");
     return view ? { brief: view.id, stocks: view.stocks.length, articles: view.refs.length, model: view.model } : { skipped: "not a trading day, or already done today" };
   };
 

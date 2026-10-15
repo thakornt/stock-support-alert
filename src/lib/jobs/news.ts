@@ -5,6 +5,7 @@ import { lastRunDay, markRun } from "@/lib/db/jobRuns";
 import {
   articlesBetween,
   articlesWithoutBody,
+  briefStartedWithin,
   cancelBrief,
   finishBrief,
   getBrief,
@@ -16,7 +17,7 @@ import {
   startBrief,
   type StoredBrief,
 } from "@/lib/db/news";
-import { isTradingDay, lastCompletedSession, nyToday } from "@/lib/market/calendar";
+import { isTradingDay, isWithinWindowAfterOpen, lastCompletedSession, nyToday } from "@/lib/market/calendar";
 import { fetchArticleText, resolveLink, skipsFullText } from "@/lib/news/extract";
 import { FinnhubHttpError, fetchCompanyName, fetchCompanyNews, fetchMarketNews, type RawArticle } from "@/lib/news/finnhub";
 import { parseBrief } from "@/lib/news/parse";
@@ -128,6 +129,18 @@ export async function collectNews(now = new Date(), { budgetMs = 200_000 }: { bu
   return result;
 }
 
+/**
+ * Should this hourly run make the day's brief instead (catch-up)? On a trading day between 08:30 and 16:00 New York,
+ * when the scheduled 08:30 brief has not succeeded (the AI provider was overloaded, it ran out of time...), and no
+ * other brief started in the last 10 minutes. Each hourly run then tries again until one works.
+ */
+export async function briefCatchUpDue(now = new Date()): Promise<boolean> {
+  const day = nyToday(now);
+  if (!isTradingDay(day) || !isWithinWindowAfterOpen(now, -60, 450)) return false;
+  if ((await lastRunDay("news-brief")) === day) return false;
+  return !(await briefStartedWithin(10));
+}
+
 export type NewsErrorCode = "not_configured" | "no_symbols" | "no_news" | "limit" | "timeout" | "ai" | "parse";
 
 /** `message` is user-safe (shown on the page). */
@@ -178,7 +191,8 @@ export async function runNewsBrief({ trigger, force = false, now = new Date() }:
   }
 
   // fresh news first; a manual run keeps more of its time for the AI
-  const collected = await collectNews(now, { budgetMs: trigger === "manual" ? 60_000 : 120_000 }).catch((err) => {
+  // the hourly collection has just run, so a minute is enough: the AI keeps most of the function's 300 s
+  const collected = await collectNews(now, { budgetMs: 60_000 }).catch((err) => {
     console.error("news collect failed", err);
     return null;
   });

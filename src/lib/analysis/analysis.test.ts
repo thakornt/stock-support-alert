@@ -76,6 +76,7 @@ const track: TrackSummary = {
   since: "2022-05-12",
   records: { minor: rec(6, 4, 5), intermediate: rec(0, 0, 0), major: rec(3, 1, 2) },
   recentBreak: null,
+  openTouches: [],
 };
 const tracked: TrackedSymbol = {
   symbol: "ORCL",

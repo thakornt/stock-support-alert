@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeSupports } from "./calculate";
-import { summarizeTrack, tierRecords, trackLevels, type LevelTest } from "./track";
+import { pendingBreak, summarizeTrack, tierRecords, trackLevels, type LevelTest } from "./track";
 import type { Candle } from "./types";
 
 const date = (i: number) => new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10);
@@ -52,7 +52,27 @@ describe("summaries", () => {
     const tests = [t("minor", "broken", "2026-08-01", "2026-08-03"), t("major", "broken", "2026-09-10", "2026-09-12"), t("minor", "held", "2026-09-20", "2026-09-22")];
     expect(summarizeTrack(tests, "2026-09-30")).toMatchObject({ recentBreak: { tier: "major", resolvedOn: "2026-09-12" }, since: "2026-08-01" });
     expect(summarizeTrack(tests, "2026-12-31").recentBreak).toBeNull();
-    expect(summarizeTrack([], "2026-09-30")).toMatchObject({ recentBreak: null, since: null });
+    expect(summarizeTrack([], "2026-09-30")).toMatchObject({ recentBreak: null, since: null, openTouches: [] });
+  });
+
+  it("lists undecided touches with the closes that would decide them, and finds the one the price is under", () => {
+    const open = (tier: LevelTest["tier"], level: number, zoneLow: number | null = null): LevelTest => ({
+      ...t(tier, "open", "2026-10-13", null),
+      level,
+      zoneLow,
+    });
+    const s = summarizeTrack([open("minor", 222.91), open("intermediate", 210, 205), t("major", "held", "2026-09-01", "2026-09-03")], "2026-10-15");
+    expect(s.openTouches).toHaveLength(2);
+    expect(s.openTouches[0]).toMatchObject({ tier: "minor", level: 222.91 });
+    expect(s.openTouches[0].floor).toBeCloseTo(222.91 * 0.97);
+    expect(s.openTouches[0].bounce).toBeCloseTo(222.91 * 1.03);
+    expect(s.openTouches[1].floor).toBeCloseTo(205 * 0.97); // a zone breaks below its bottom
+
+    expect(pendingBreak(s.openTouches, 225)).toBeNull(); // above both
+    expect(pendingBreak(s.openTouches, 221.3)?.level).toBe(222.91); // under the old first support
+    expect(pendingBreak(s.openTouches, 207)?.level).toBe(222.91); // inside the zone: the zone is not broken yet
+    expect(pendingBreak(s.openTouches, 204)?.tier).toBe("intermediate"); // under both: the more important tier
+    expect(pendingBreak(s.openTouches, null)).toBeNull();
   });
 });
 

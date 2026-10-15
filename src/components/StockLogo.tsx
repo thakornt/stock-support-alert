@@ -29,7 +29,7 @@ export function StockLogo({ symbol, version, className = "size-9" }: { symbol: s
   }
   const loaded = state === "loaded";
   return (
-    <span className={`relative grid shrink-0 place-items-center overflow-hidden rounded-lg ring-1 ring-border ${loaded ? "bg-white" : "animate-pulse bg-elevated"} ${className}`}>
+    <span className={`relative grid shrink-0 place-items-center overflow-hidden rounded-lg bg-elevated ring-1 ring-border ${loaded ? "" : "animate-pulse"} ${className}`}>
       {!loaded && letter}
       {/* eslint-disable-next-line @next/next/no-img-element -- served by our own route, already small */}
       <img
@@ -41,7 +41,8 @@ export function StockLogo({ symbol, version, className = "size-9" }: { symbol: s
         loading="lazy"
         onLoad={() => setState("loaded")}
         onError={() => setState("failed")}
-        className={`absolute inset-0 size-full object-contain p-1 transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
+        // the white tile fades in with the logo, so there is never an empty white square
+        className={`absolute inset-0 size-full bg-white object-contain p-1 transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
       />
     </span>
   );

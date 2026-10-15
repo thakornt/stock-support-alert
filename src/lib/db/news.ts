@@ -151,6 +151,12 @@ export async function cancelBrief(id: number) {
   await sql()`delete from news_briefs where id = ${id}`;
 }
 
+/** A brief (finished or still running) started in the last `minutes`: another run is under way or just done. */
+export async function briefStartedWithin(minutes: number): Promise<boolean> {
+  const rows = await sql()`select 1 from news_briefs where created_at > now() - make_interval(mins => ${minutes}) limit 1`;
+  return rows.length > 0;
+}
+
 export async function briefsOnDay(day: string): Promise<number> {
   const rows = await sql()<{ n: number }[]>`select count(*)::int as n from news_briefs where day = ${day}::date`;
   return rows[0]?.n ?? 0;

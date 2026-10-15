@@ -127,6 +127,13 @@ export interface TrackSummary {
   recentBreak: Pick<LevelTest, "tier" | "method" | "level" | "zoneLow" | "touchedOn" | "resolvedOn"> | null;
   /** first touch replayed (start of the record) */
   since: string | null;
+  /**
+   * Touches still undecided (the price has not yet bounced 3% above the level, nor closed 3% below it, within 20 trading
+   * days). `floor` = the close below which it counts as broken, `bounce` = the close above which it counts as held.
+   * The card warns when the price is under such a level: it may be on its way to breaking, even though the daily
+   * recalculation has since moved the levels.
+   */
+  openTouches: (Pick<LevelTest, "tier" | "method" | "level" | "zoneLow" | "touchedOn"> & { floor: number; bounce: number })[];
 }
 
 const RECENT_BREAK_DAYS = 30;
@@ -144,6 +151,31 @@ export function summarizeTrack(tests: LevelTest[], today: string): TrackSummary 
       ? { tier: lastBreak.tier, method: lastBreak.method, level: lastBreak.level, zoneLow: lastBreak.zoneLow, touchedOn: lastBreak.touchedOn, resolvedOn: lastBreak.resolvedOn }
       : null,
     since: tests.reduce<string | null>((min, t) => (min === null || t.touchedOn < min ? t.touchedOn : min), null),
+    openTouches: tests
+      .filter((t) => t.outcome === "open")
+      .map((t) => ({
+        tier: t.tier,
+        method: t.method,
+        level: t.level,
+        zoneLow: t.zoneLow,
+        touchedOn: t.touchedOn,
+        floor: Math.min(t.level, t.zoneLow ?? t.level) * (1 - TRACK_RULES.breakBelow),
+        bounce: t.level * (1 + TRACK_RULES.bounce),
+      })),
   };
 }
 
+const TIER_RANK: Record<Tier, number> = { minor: 0, intermediate: 1, major: 2 };
+
+/**
+ * The undecided touch the price is now below (the bottom of the zone for a swing-low level), most important tier
+ * first, then the higher level: "under the old first support, not yet counted as broken". null when there is none.
+ */
+export function pendingBreak(open: TrackSummary["openTouches"], price: number | null): TrackSummary["openTouches"][number] | null {
+  if (price === null) return null;
+  return (
+    open
+      .filter((t) => price < Math.min(t.level, t.zoneLow ?? t.level))
+      .sort((a, b) => TIER_RANK[b.tier] - TIER_RANK[a.tier] || b.level - a.level)[0] ?? null
+  );
+}
