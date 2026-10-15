@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { DEFAULT_RANGE, priceDomain, RANGES, TOUCH_TIERS, type ChartData, type RangeId, type TouchOutcome } from "@/lib/chart/series";
 import { TIER_LABEL_TH, type Tier } from "@/lib/support/types";
+import { Spinner } from "./Spinner";
 
 /** Drawn at the real width of the card (measured), so the labels keep their size on a phone and on a desktop. */
 const PAD = { top: 10, right: 58, bottom: 22, left: 4 };
@@ -143,6 +144,24 @@ function Chart({ data, levels, symbol, width: W }: { data: ChartData; levels: { 
   );
 }
 
+/** Shown while a range loads: the outline of a chart, pulsing, with a spinner, so the space is visibly busy. */
+function ChartSkeleton() {
+  return (
+    <div role="status" className="absolute inset-0 overflow-hidden rounded-lg border border-border/60 bg-elevated/40">
+      <svg viewBox="0 0 320 120" preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 size-full animate-pulse text-muted">
+        <path d="M0,88 C30,80 45,60 70,66 S110,92 140,70 S190,30 220,44 S270,70 320,36" fill="none" stroke="currentColor" strokeOpacity="0.35" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+        {[52, 74, 92].map((y) => (
+          <line key={y} x1="0" x2="320" y1={y} y2={y} stroke="currentColor" strokeOpacity="0.2" strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />
+        ))}
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center gap-2 text-xs text-muted">
+        <Spinner className="text-primary" />
+        กำลังโหลดกราฟ…
+      </span>
+    </div>
+  );
+}
+
 /**
  * Daily closes (weekly over 5 years) with the current support levels as dashed lines and every past touch of a level
  * from the backtest replay: filled = held, ring = broke. Choosing the range only changes what is shown, so visitors
@@ -200,14 +219,16 @@ export function PriceChart({ symbol, levels }: { symbol: string; levels: { tier:
 
       <div ref={box} className="relative w-full" style={{ height: heightFor(width || 360) }}>
         {current === null ? (
-          <div className="absolute inset-0 animate-pulse rounded-lg bg-elevated/60" aria-label="กำลังโหลดกราฟ" />
+          <ChartSkeleton />
         ) : current.error ? (
           <p className="absolute inset-0 grid place-items-center text-xs text-muted">โหลดกราฟไม่ได้ ลองเปิดใหม่อีกครั้ง</p>
         ) : !data || data.points.length < 2 ? (
           <p className="absolute inset-0 grid place-items-center px-4 text-center text-xs text-muted">ยังไม่มีราคาย้อนหลัง จะแสดงหลังรอบคำนวณรายวัน</p>
         ) : width > 0 ? (
           <Chart data={data} levels={levels} symbol={symbol} width={width} />
-        ) : null}
+        ) : (
+          <ChartSkeleton />
+        )}
       </div>
 
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
