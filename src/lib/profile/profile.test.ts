@@ -109,7 +109,8 @@ describe("describeProfile: plain-language meaning", () => {
   it("revenue growth bands", () => {
     expect(line({ revenueGrowth: -8 }, "growth")).toMatchObject({ value: "-8%", caution: true });
     expect(line({ revenueGrowth: -8 }, "growth")!.meaning).toContain("หดตัว");
-    expect(line({ revenueGrowth: 5 }, "growth")!.meaning).toContain("โตช้า");
+    expect(line({ revenueGrowth: 4.9 }, "growth")!.meaning).toContain("โตช้า");
+    expect(line({ revenueGrowth: 5 }, "growth")!.meaning).toContain("โตพอประมาณ");
     expect(line({ revenueGrowth: 15 }, "growth")!.meaning).toContain("ปานกลาง");
     expect(line({ revenueGrowth: 30 }, "growth")!.meaning).toBe("รายได้โตเร็ว");
     expect(line({ revenueGrowth: 83.4 }, "growth")!.value).toBe("+83%");
@@ -208,6 +209,12 @@ describe("describeProfile: dividend", () => {
     expect(line({ dividendYield: 9 }, "dividend")).toMatchObject({ caution: true });
     expect(line({ dividendYield: 0.4 }, "dividend")!.meaning).toContain("ปันผลน้อย");
   });
+  it("does not round a token dividend down to 0.0%", () => {
+    const d = line({ dividendYield: 0.03 }, "dividend")!;
+    expect(d.value).toBe("ต่ำกว่า 0.1%");
+    expect(d.meaning).toContain("ไม่ถึง $0.1");
+    expect(d.meaning).toContain("แทบไม่มีปันผล");
+  });
   it("shows nothing when there is no figure (pays none, or unknown): nothing is guessed", () => {
     expect(line({ dividendYield: null }, "dividend")).toBeUndefined();
     expect(line({ dividendYield: 0 }, "dividend")).toBeUndefined();
@@ -286,5 +293,17 @@ describe("describeProfile: analysts", () => {
     const v = view({ ...recs, targetMean: 250 });
     expect(v.lines.map((l) => l.key).slice(-2)).toEqual(["analysts", "target"]);
     expect(v.footnote).toContain("นักวิเคราะห์จาก Finnhub");
+  });
+});
+
+describe("describeProfile: wording checked in the audit", () => {
+  it("revenue growth of 5-10% is not called 'at or below the economy'", () => {
+    expect(line({ revenueGrowth: 7.5 }, "growth")!.meaning).toBe("รายได้โตพอประมาณ สูงกว่าเศรษฐกิจโดยรวมเล็กน้อย");
+    expect(line({ revenueGrowth: 3 }, "growth")!.meaning).toContain("ใกล้เคียงหรือต่ำกว่าเศรษฐกิจโดยรวม");
+  });
+  it("does not call every stock with mostly buy ratings a large company", () => {
+    const l = line({ recStrongBuy: 5, recBuy: 6, recHold: 1, recSell: 0, recStrongSell: 0, recPeriod: "2026-09-01" }, "analysts")!;
+    expect(l.meaning).not.toContain("หุ้นใหญ่");
+    expect(l.meaning).toContain("ไม่ใช่สัญญาณที่แรงนัก");
   });
 });

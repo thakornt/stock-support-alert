@@ -167,3 +167,15 @@ describe("buildStockInput: analysts", () => {
     expect(buildStockInput(tracked, 137.5, undefined, track, "2026-09-30").analysts).toBeNull();
   });
 });
+
+describe("prompt rules added after the audit", () => {
+  it("tells the AI that a forward P/E above the current one means falling earnings, and what pastHeld covers", async () => {
+    const { SYSTEM_PROMPT, MANUAL_PROMPT_RULES } = await import("./prompt");
+    for (const p of [SYSTEM_PROMPT, MANUAL_PROMPT_RULES]) {
+      expect(p).toContain("expect earnings to FALL");
+      expect(p).toContain("never call that stock cheap");
+      expect(p).toContain("record of that tier");
+      expect(p).toContain("below every level");
+    }
+  });
+});

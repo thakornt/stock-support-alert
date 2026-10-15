@@ -53,7 +53,8 @@ export function formatSupportReply(all: StockSnapshot[], requested: string[]): s
       ? `${s.symbol} — ${usd(s.price)}${s.quoteTime ? ` (ราคา ณ ${formatDateTime(s.quoteTime)})` : ""}`
       : `${s.symbol} — ยังไม่มีราคา`;
     const lines = s.levels.length === 0
-      ? ["• ยังไม่มีแนวรับ"]
+      ? // the daily calculation keeps only levels under the price: none left means the price is below all of them
+        [s.price !== null ? "• ไม่มีแนวรับเหลือด้านล่าง — ราคาต่ำกว่าทุกระดับที่คำนวณได้ (ทำจุดต่ำสุดใหม่)" : "• ยังไม่มีแนวรับ"]
       : s.levels.map((l) => {
           const dist = s.price !== null ? ` [${(((s.price - l.price) / l.price) * 100).toFixed(1)}% จากแนวรับ]` : "";
           return `• ${TIER_LABEL_TH[l.tier]}: ${usd(l.price)} (${METHOD_LABEL[l.method as Method] ?? l.method})${dist}`;

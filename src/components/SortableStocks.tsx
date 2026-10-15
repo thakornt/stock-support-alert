@@ -65,12 +65,12 @@ const SOURCE_LABEL: Record<PriceEntry["source"], string> = {
   db: "รอบเช็กล่าสุด",
 };
 
-/** "ย้อนหลังรับได้ 7/12 ครั้ง (58%) · หลุด 4 — ระดับมั่วระยะเดียวกัน 55%" for one tier; null when never touched. */
+/** The record of a TIER (every past touch of that tier, whichever method produced the level), not of the current line. */
 function recordText(r: TierRecord): string | null {
   const total = r.held + r.broken + r.unclear;
   if (total === 0) return null;
   const pct = (x: number) => `${Math.round((x / total) * 100)}%`;
-  return `ย้อนหลังรับได้ ${r.held}/${total} ครั้ง (${pct(r.held)}) · หลุด ${r.broken} — ระดับมั่วระยะเดียวกันรับได้ ${pct(r.expectedHeld)}`;
+  return `สถิติของระดับนี้ในอดีต (ทุกครั้งที่ราคาแตะแนวรับระดับเดียวกัน ไม่ว่าจะมาจากวิธีไหน): รับได้ ${r.held}/${total} ครั้ง (${pct(r.held)}) · หลุด ${r.broken} — ระดับมั่วระยะเดียวกันรับได้ ${pct(r.expectedHeld)}`;
 }
 
 /** Copies the section as plain text (to paste into an AI chat for further analysis). */
@@ -199,7 +199,7 @@ function StockCard({
       {brk && stillBroken && (
         <p className="mt-4 rounded-xl bg-danger/10 px-3 py-2 text-xs leading-relaxed text-danger ring-1 ring-danger/25">
           {TIER_LABEL_TH[brk.tier]} {usd(brk.level)} ({METHOD_LABEL[brk.method] ?? brk.method}) หลุดเมื่อ{" "}
-          {formatDateString(brk.resolvedOn!)} — ระดับที่แสดงด้านล่างคือระดับถัดลงไป
+          {formatDateString(brk.resolvedOn!)} — {s.levels.length > 0 ? "ระดับที่แสดงด้านล่างคือระดับถัดลงไป" : "ไม่มีแนวรับเหลือด้านล่าง ราคาต่ำกว่าทุกระดับที่คำนวณได้ จะไม่มีแจ้งเตือนของหุ้นนี้จนกว่าจะเกิดแนวรับใหม่"}
         </p>
       )}
       {pending && (
@@ -211,7 +211,14 @@ function StockCard({
         </p>
       )}
       {s.levels.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">ยังไม่มีแนวรับ</p>
+        brk && stillBroken ? null : s.profile?.historyAt ? (
+          // the daily calculation ran and found nothing under the price: it is below every level (a new low)
+          <p className="mt-4 rounded-xl bg-danger/10 px-3 py-2 text-xs leading-relaxed text-danger">
+            ไม่มีแนวรับเหลือด้านล่าง — ราคาอยู่ต่ำกว่าทุกระดับที่คำนวณได้ (มักเกิดเมื่อราคาลงมาทำจุดต่ำสุดใหม่) จะไม่มีแจ้งเตือนของหุ้นนี้จนกว่าจะเกิดแนวรับใหม่
+          </p>
+        ) : (
+          <p className="mt-4 text-sm text-muted">ยังไม่มีแนวรับ (รอรอบคำนวณรายวัน)</p>
+        )
       ) : (
         <ul className="mt-4 divide-y divide-border rounded-xl border border-border bg-background/40">
           {s.levels.map((l) => {

@@ -32,6 +32,11 @@ describe("formatSupportReply", () => {
     expect(t).not.toContain("NVDA");
     expect(t).toContain("ไม่พบในรายการที่ track: TSLA");
   });
+  it("says a priced stock with no levels is below all of them (not that data is missing)", () => {
+    const t = formatSupportReply([{ symbol: "KYTX", price: 5.69, quoteTime: null, levels: [] }], []).join("\n");
+    expect(t).toContain("ไม่มีแนวรับเหลือด้านล่าง");
+    expect(formatSupportReply(all, ["AMD"]).join("\n")).toContain("ยังไม่มีแนวรับ"); // no price yet: nothing to compare
+  });
   it("handles an empty watchlist", () => {
     expect(formatSupportReply([], []).join("\n")).toContain("ยังไม่มีหุ้น");
   });
