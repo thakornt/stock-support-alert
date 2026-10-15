@@ -254,19 +254,25 @@ export function AnalysisPanel({
         {models.length > 1 && (
           <label className="flex items-center gap-2 text-xs text-muted">
             โมเดล
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              disabled={busy}
-              className="field cursor-pointer bg-card px-3 font-mono text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {models.map((m, i) => (
-                <option key={m} value={m}>
-                  {m}
-                  {i === 0 ? " (หลัก)" : ""}
-                </option>
-              ))}
-            </select>
+            {/* the native arrow sits on the rounded edge: hide it and draw one inside the padding */}
+            <span className="relative">
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                disabled={busy}
+                className="field cursor-pointer appearance-none bg-card pl-4 pr-10 font-mono text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {models.map((m, i) => (
+                  <option key={m} value={m}>
+                    {m}
+                    {i === 0 ? " (หลัก)" : ""}
+                  </option>
+                ))}
+              </select>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-muted">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </span>
           </label>
         )}
       </div>
