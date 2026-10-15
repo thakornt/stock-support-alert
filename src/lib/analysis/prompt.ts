@@ -3,6 +3,7 @@ import { currentTarget, type ProfileData } from "@/lib/profile/describe";
 import type { TrackedSymbol } from "@/lib/db/symbols";
 import type { TrackSummary } from "@/lib/support/track";
 import { METHOD_LABEL, type Method, type Tier } from "@/lib/support/types";
+import { FACTORS, type FactorId } from "./factors";
 import { GOALS, MAX_PICKS, type GoalId } from "./types";
 
 const DAY_MS = 86_400_000;
@@ -47,6 +48,13 @@ export interface StockInput {
   analysts: { buy: number; hold: number; sell: number; month: string; targetMean: number | null; targetVsPricePct: number | null } | null;
   /** the latest news brief's reading of this stock (AI summary of free news), or null when there is none recent */
   news: { direction: string; impact: string; summary: string; points: string[] } | null;
+  /** Finnhub's industry, or null */
+  industry: string | null;
+  /**
+   * Comparable figures computed by the system (see FACTORS in ./factors) with the stock's percentile among the stocks
+   * being ranked: 0 = lowest value, 100 = highest. A factor that cannot be computed for this stock is absent.
+   */
+  factors: Partial<Record<FactorId, { value: number; percentile: number }>>;
 }
 
 /** The facts the AI may use, per stock, computed from our own data (numbers only: nothing free-text reaches the prompt). */
@@ -57,6 +65,7 @@ export function buildStockInput(
   track: TrackSummary,
   today: string,
   news: StockNews | null = null,
+  factors: StockInput["factors"] = {},
 ): StockInput {
   const p = profile;
   const high = p?.high52w ?? null;
@@ -100,6 +109,8 @@ export function buildStockInput(
     news: news
       ? { direction: news.direction, impact: news.impact, summary: news.summary, points: news.points.map((x) => `(${x.kind}) ${x.text}`) }
       : null,
+    industry: p?.industry ?? null,
+    factors,
   };
 }
 
@@ -113,6 +124,9 @@ Rules:
 - Valuation: when "forwardPe" is clearly above "pe" (more than 15% higher), analysts expect earnings to FALL: say so as a risk and never call that stock cheap or attractively valued on P/E. When forwardPe is clearly below pe, earnings are expected to grow.
 - "analysts" are brokerage analysts' ratings and average price target: opinions, not facts. They lean heavily to "buy" (sell ratings are rare) and targets are usually optimistic, so treat them as one weak input, mention them as opinions, and never as a predicted price.
 - "news" is an earlier AI summary of free news sources about the stock (may be incomplete or late; points marked (opinion) are writers' views, (inference) are guesses). Use it only as context, call it "ข่าว", and never add news that is not there. null = no recent news was found, not that nothing happened.
+- "factors" are figures the system computed for every stock in the same way, each with its "percentile" among the stocks in this list (0 = the lowest value, 100 = the highest). A percentile is not good or bad by itself: a low "pe" percentile means cheaper than the others, a low "vol1y" percentile means calmer. Use the percentiles to compare stocks fairly, and the values when you cite numbers. Factor definitions are given below the data.
+- A factor or figure that is missing means the data does not exist for that stock (a company with losses has no P/E, a fund has no revenue). Judge each stock on the figures it HAS: never count a missing figure against it, and never prefer a company because it is large, famous or familiar to you. Smaller, less-known stocks deserve the same scrutiny and the same chance as household names.
+- Give a verdict for EVERY stock in the data: "fit" is high, medium or low against the goals, or unknown only when the figures the goals need are missing; "note" is one Thai sentence citing a number. Then choose the picks only from stocks with fit high or medium, best first.
 - Be willing to pick fewer than ${MAX_PICKS} if fewer stocks really fit. Never pick a stock that is not in the data.
 - Write in Thai. Keep each reason/risk to one short sentence that cites a number from the data.`;
 
@@ -139,19 +153,26 @@ export const SYSTEM_PROMPT = `${RULES}
 Reply with ONE JSON object and nothing else (no markdown fences), exactly in this shape:
 {
   "summary": "2-3 Thai sentences: what the ranking favours and the main caution",
+  "verdicts": [
+    { "symbol": "TICKER", "fit": "high", "note": "one Thai sentence citing a number" }
+  ],
   "picks": [
     { "symbol": "TICKER", "rank": 1, "reasons": ["..."], "risks": ["..."], "entryNote": "one Thai sentence on the price versus the support levels" }
   ],
   "caveats": ["Thai sentences about data gaps or limits that affect this ranking"]
 }
-"picks" is ordered best first, at most ${MAX_PICKS}, each with 2-4 reasons and 1-3 risks.`;
+"verdicts" has one entry for every stock in the data. "picks" is ordered best first, at most ${MAX_PICKS}, each with 2-4 reasons and 1-3 risks.`;
 
 /** The same rules for a person to paste into any AI chat (no API, no quota): asks for a readable Thai answer instead of JSON. */
 export const MANUAL_PROMPT_RULES = `${RULES}
 
-Answer in readable Thai: a 2-3 sentence summary, then the picks best first (at most ${MAX_PICKS}), each with 2-4 reasons, 1-3 risks and one sentence on the price versus its support levels, then the data gaps or limits that affect the ranking.`;
+Answer in readable Thai: a 2-3 sentence summary, then a short verdict for EVERY stock (fit high / medium / low / unknown and one sentence citing a number), then the picks best first (at most ${MAX_PICKS}), each with 2-4 reasons, 1-3 risks and one sentence on the price versus its support levels, then the data gaps or limits that affect the ranking.`;
 
-export function buildUserPrompt(goals: GoalId[], stocks: StockInput[], today: string): string {
+/** Stocks are identified by codes; nothing in the data names the company. */
+const ANONYMOUS_NOTE =
+  "The stocks are identified by codes (S01, S02, ...) on purpose: judge them only on the data and do not try to guess which companies they are. Dollar prices are hidden (level / price fields are 0 or null): use the percentage distances.";
+
+export function buildUserPrompt(goals: GoalId[], stocks: StockInput[], today: string, { anonymous = false }: { anonymous?: boolean } = {}): string {
   const goalText =
     goals.length === 0
       ? "- No specific goal chosen: judge the overall balance of growth, valuation and risk."
@@ -161,6 +182,42 @@ export function buildUserPrompt(goals: GoalId[], stocks: StockInput[], today: st
 Investor goals (all together; a stock that fits several ranks higher):
 ${goalText}
 
-Stocks (JSON):
-${JSON.stringify(stocks)}`;
+${anonymous ? `${ANONYMOUS_NOTE}\n\n` : ""}Stocks (JSON):
+${JSON.stringify(stocks)}
+
+Factor definitions:
+${FACTORS.map((f) => `- ${f.id}${f.unit && f.unit !== "n" ? ` (${f.unit})` : ""}: ${f.definition}`).join("\n")}`;
+}
+
+const oneSignificant = (n: number) => {
+  if (n <= 0) return n;
+  const mag = 10 ** Math.floor(Math.log10(n));
+  return Math.round(n / mag) * mag;
+};
+
+/**
+ * The same stocks with the tickers replaced by codes (S01...) and without what names the company or gives it away:
+ * news summaries (they quote names), dollar prices (a $221 chip maker is easy to guess: distances in % stay), and an
+ * exact market cap (rounded to one significant figure). Not a guarantee (industry and size still narrow it down), but
+ * it removes the brand from the judgement. Returns the inputs and the code -> ticker map to translate the answer back.
+ */
+export function anonymize(stocks: StockInput[]): { stocks: StockInput[]; codes: Map<string, string> } {
+  const codes = new Map<string, string>();
+  const out = stocks.map((s, i): StockInput => {
+    const code = `S${String(i + 1).padStart(2, "0")}`;
+    codes.set(code, s.symbol);
+    const cap = s.factors.marketCapB;
+    return {
+      ...s,
+      symbol: code,
+      price: null,
+      news: null,
+      risk: { ...s.risk, high52w: null },
+      supportLevels: s.supportLevels.map((l) => ({ ...l, level: 0, zoneLow: null })),
+      recentBreak: s.recentBreak ? { ...s.recentBreak, level: 0 } : null,
+      analysts: s.analysts ? { ...s.analysts, targetMean: null } : null,
+      factors: cap ? { ...s.factors, marketCapB: { ...cap, value: oneSignificant(cap.value) } } : s.factors,
+    };
+  });
+  return { stocks: out, codes };
 }

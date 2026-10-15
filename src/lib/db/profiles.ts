@@ -1,11 +1,13 @@
-import type { AnalystView, Fundamentals } from "@/lib/profile/finnhub";
+import type { AnalystView, CompanyFacts, Fundamentals } from "@/lib/profile/finnhub";
 import type { HistoryStats } from "@/lib/profile/history";
 import { sql } from "./client";
 
-export interface StockProfile extends Partial<HistoryStats>, Partial<Fundamentals>, Partial<AnalystView> {
+export interface StockProfile extends Partial<HistoryStats>, Partial<Fundamentals>, Partial<AnalystView>, Partial<CompanyFacts> {
   symbol: string;
   historyAt: Date | null;
   fundamentalsAt: Date | null;
+  /** USD */
+  marketCap?: number | null;
 }
 
 export async function saveHistoryStats(symbol: string, h: HistoryStats) {
@@ -53,6 +55,19 @@ export async function saveAnalysts(symbol: string, a: AnalystView, { keepTarget 
       analysts_at = now()`;
 }
 
+/** `marketCap` undefined = could not be fetched this time: the stored one stays. */
+export async function saveCompanyFacts(
+  symbol: string,
+  f: { sharesOutstanding: number | null; industry: string | null; marketCap?: number | null },
+) {
+  const db = sql();
+  const cap = f.marketCap === undefined ? db`` : db`, market_cap = excluded.market_cap, market_cap_at = now()`;
+  await db`
+    insert into stock_profiles (symbol, shares_outstanding, industry, market_cap, market_cap_at)
+    values (${symbol}, ${f.sharesOutstanding}, ${f.industry}, ${f.marketCap ?? null}, ${f.marketCap === undefined ? null : new Date()})
+    on conflict (symbol) do update set shares_outstanding = excluded.shares_outstanding, industry = excluded.industry ${cap}`;
+}
+
 /** Of `symbols`, those whose analyst figures are missing or older than `maxAgeHours`. */
 export async function symbolsNeedingAnalysts(symbols: string[], maxAgeHours: number): Promise<Set<string>> {
   if (symbols.length === 0) return new Set();
@@ -84,6 +99,13 @@ export async function listProfiles(): Promise<StockProfile[]> {
            rec_strong_buy as "recStrongBuy", rec_buy as "recBuy", rec_hold as "recHold", rec_sell as "recSell",
            rec_strong_sell as "recStrongSell", rec_period::text as "recPeriod", target_mean as "targetMean",
            target_high as "targetHigh", target_low as "targetLow", target_updated::text as "targetUpdated",
-           target_source as "targetSource"
+           target_source as "targetSource", shares_outstanding as "sharesOutstanding", industry,
+           market_cap as "marketCap"
     from stock_profiles`;
+}
+
+/** The last close stored by the daily recalculation (USD), or null. */
+export async function lastClose(symbol: string): Promise<number | null> {
+  const rows = await sql()<{ c: number | null }[]>`select last_close::float8 as c from stock_profiles where symbol = ${symbol}`;
+  return rows[0]?.c ?? null;
 }

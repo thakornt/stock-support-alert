@@ -1,7 +1,7 @@
-import { saveAnalysts, saveFundamentals, symbolsNeedingAnalysts, symbolsNeedingFundamentals } from "@/lib/db/profiles";
+import { lastClose, saveAnalysts, saveCompanyFacts, saveFundamentals, symbolsNeedingAnalysts, symbolsNeedingFundamentals } from "@/lib/db/profiles";
 import { nyToday } from "@/lib/market/calendar";
-import { fetchAnalysts, fetchFundamentals } from "@/lib/profile/finnhub";
-import { fetchNasdaqTarget, NasdaqError } from "@/lib/profile/nasdaq";
+import { fetchAnalysts, fetchCompanyFacts, fetchFundamentals } from "@/lib/profile/finnhub";
+import { fetchNasdaqMarketCap, fetchNasdaqTarget, marketCapUsd, NasdaqError } from "@/lib/profile/nasdaq";
 
 /** Fundamentals change quarterly; refreshing once a day is plenty. */
 const MAX_AGE_HOURS = 20;
@@ -56,6 +56,20 @@ export async function refreshFundamentals({
               }
             }
             await saveAnalysts(symbol, analysts, { keepTarget });
+            // size and industry change slowly: refreshed on the same 3-day cycle (best effort)
+            if (!deadline.aborted) {
+              try {
+                const facts = await fetchCompanyFacts(symbol, key, deadline);
+                const nasdaqCap = await fetchNasdaqMarketCap(symbol, deadline).catch((e) => {
+                  console.error("nasdaq market cap failed", symbol, e instanceof Error ? e.message : e);
+                  return undefined; // keep the stored one
+                });
+                const marketCap = nasdaqCap === undefined ? undefined : marketCapUsd(nasdaqCap, facts, await lastClose(symbol));
+                await saveCompanyFacts(symbol, { ...facts, marketCap });
+              } catch (e) {
+                console.error("company facts failed", symbol, e instanceof Error ? e.message : e);
+              }
+            }
           } catch (e) {
             console.error("analysts failed", symbol, e); // best effort: never fails the fundamentals
           }

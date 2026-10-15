@@ -179,3 +179,61 @@ describe("prompt rules added after the audit", () => {
     }
   });
 });
+
+describe("verdicts, contradictions and hidden names", () => {
+  it("keeps one verdict per stock in the given order, fills the missing ones as unknown, flags self-contradicting picks", async () => {
+    const { parseAnalysis } = await import("./parse");
+    const reply = JSON.stringify({
+      summary: "s",
+      verdicts: [
+        { symbol: "kytx", fit: "HIGH", note: "อัพไซด์ 433%" },
+        { symbol: "NVDA", fit: "low", note: "แพง" },
+        { symbol: "NVDA", fit: "high", note: "dup ignored" },
+        { symbol: "TSLA", fit: "high", note: "not ours" },
+      ],
+      picks: [
+        { symbol: "KYTX", rank: 1, reasons: ["r"], risks: ["k"], entryNote: "e" },
+        { symbol: "NVDA", rank: 2, reasons: ["r"], risks: ["k"], entryNote: "e" },
+        { symbol: "MSFT", rank: 3, reasons: ["r"], risks: ["k"], entryNote: "e" },
+      ],
+    });
+    const p = parseAnalysis(reply, ["NVDA", "MSFT", "KYTX"]);
+    expect(p.verdicts).toEqual([
+      { symbol: "NVDA", fit: "low", note: "แพง" },
+      { symbol: "MSFT", fit: "unknown", note: "" },
+      { symbol: "KYTX", fit: "high", note: "อัพไซด์ 433%" },
+    ]);
+    // NVDA was rated low by the AI itself; MSFT has no verdict at all (incomplete, not contradictory)
+    expect(p.contradicted).toEqual(["NVDA"]);
+  });
+
+  it("hides tickers, dollar prices and news, rounds the size, and keeps the percentages", async () => {
+    const { anonymize } = await import("./prompt");
+    const s = buildStockInput(tracked, 137.5, profile, track, "2026-09-30", null, {
+      marketCapB: { value: 376.04, percentile: 40 },
+      ret6m: { value: 12.3, percentile: 70 },
+    });
+    const { stocks, codes } = anonymize([{ ...s, news: { direction: "positive", impact: "high", summary: "Oracle wins", points: [] } }]);
+    const a = stocks[0];
+    expect(a.symbol).toBe("S01");
+    expect(codes.get("S01")).toBe("ORCL");
+    expect(a.price).toBeNull();
+    expect(a.news).toBeNull();
+    expect(a.risk.high52w).toBeNull();
+    expect(a.supportLevels.every((l) => l.level === 0 && l.zoneLow === null)).toBe(true);
+    expect(a.supportLevels[0].distanceAbovePct).toBe(0.4); // the distance stays
+    expect(a.factors.marketCapB).toEqual({ value: 400, percentile: 40 });
+    expect(a.factors.ret6m).toEqual({ value: 12.3, percentile: 70 });
+    expect(JSON.stringify(a)).not.toMatch(/ORCL|Oracle|137\.5|136\.95/);
+  });
+
+  it("the prompt explains percentiles, missing data and the factors, and asks for a verdict on every stock", async () => {
+    const { SYSTEM_PROMPT, buildUserPrompt } = await import("./prompt");
+    expect(SYSTEM_PROMPT).toContain("Give a verdict for EVERY stock");
+    expect(SYSTEM_PROMPT).toContain("never prefer a company because it is large, famous or familiar");
+    const u = buildUserPrompt(["smallcap"], [], "2026-10-15", { anonymous: true });
+    expect(u).toContain("identified by codes");
+    expect(u).toContain("- marketCapB ($B): market capitalisation in billions of US dollars");
+    expect(u).toContain("A stock whose marketCapB is unknown does not fit this goal.");
+  });
+});

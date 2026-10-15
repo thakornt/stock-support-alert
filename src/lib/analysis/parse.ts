@@ -1,4 +1,4 @@
-import { MAX_PICKS, type AnalysisPick } from "./types";
+import { FITS, MAX_PICKS, type AnalysisPick, type Fit, type Verdict } from "./types";
 
 export class AnalysisParseError extends Error {}
 
@@ -6,6 +6,10 @@ export interface ParsedAnalysis {
   summary: string;
   picks: Omit<AnalysisPick, "price">[];
   caveats: string[];
+  /** one per allowed symbol, in the order given; a stock the AI left out is "unknown" with an empty note */
+  verdicts: Verdict[];
+  /** picks the AI itself rated low / unknown in its verdicts (a reply that contradicts itself on these stocks) */
+  contradicted: string[];
 }
 
 const clip = (v: unknown, max: number): string => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -58,5 +62,17 @@ export function parseAnalysis(text: string, allowedSymbols: string[]): ParsedAna
     .slice(0, MAX_PICKS)
     .map((c, i) => ({ rank: i + 1, ...c.pick }));
 
-  return { summary: clip(raw.summary, 800), picks, caveats: strings(raw.caveats, 5, 300) };
+  const given = new Map<string, Verdict>();
+  for (const item of Array.isArray(raw.verdicts) ? (raw.verdicts as unknown[]) : []) {
+    const v = (item ?? {}) as Record<string, unknown>;
+    const symbol = typeof v.symbol === "string" ? allowed.get(v.symbol.trim().toUpperCase()) : undefined;
+    if (!symbol || given.has(symbol)) continue;
+    const fit = typeof v.fit === "string" && (FITS as readonly string[]).includes(v.fit.trim().toLowerCase()) ? (v.fit.trim().toLowerCase() as Fit) : "unknown";
+    given.set(symbol, { symbol, fit, note: clip(v.note, 300) });
+  }
+  const verdicts = allowedSymbols.map((s) => given.get(s) ?? { symbol: s, fit: "unknown" as const, note: "" });
+  // only an explicit verdict counts: a reply without verdicts is incomplete, not contradictory
+  const contradicted = picks.filter((p) => ["low", "unknown"].includes(given.get(p.symbol)?.fit ?? "high")).map((p) => p.symbol);
+
+  return { summary: clip(raw.summary, 800), picks, caveats: strings(raw.caveats, 5, 300), verdicts, contradicted };
 }

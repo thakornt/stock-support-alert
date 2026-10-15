@@ -228,7 +228,7 @@ function describeAnalysts(p: ProfileData): ProfileLine | null {
 }
 
 /** A target not refreshed for this long (its source kept failing) is not shown. */
-export const TARGET_MAX_AGE_DAYS = 14;
+const TARGET_MAX_AGE_DAYS = 14;
 
 /** The average target if it is recent enough to show (see TARGET_MAX_AGE_DAYS), else null. */
 export function currentTarget(p: ProfileData, today: string): number | null {

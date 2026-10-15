@@ -36,3 +36,16 @@ export async function listPriceHistory(symbol: string, from: string): Promise<Cl
     select day::text as day, close::float8 as close from price_history
     where symbol = ${symbol} and day >= ${from} order by day`;
 }
+
+/** Every tracked symbol's closes from `from` (YYYY-MM-DD) on, oldest first: one query for the whole list. */
+export async function closesBySymbol(from: string): Promise<Map<string, number[]>> {
+  const rows = await sql()<{ symbol: string; close: number }[]>`
+    select symbol, close::float8 as close from price_history where day >= ${from} order by symbol, day`;
+  const out = new Map<string, number[]>();
+  for (const r of rows) {
+    const list = out.get(r.symbol);
+    if (list) list.push(r.close);
+    else out.set(r.symbol, [r.close]);
+  }
+  return out;
+}

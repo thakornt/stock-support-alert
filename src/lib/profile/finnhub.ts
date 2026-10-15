@@ -142,3 +142,23 @@ export async function fetchFundamentals(symbol: string, key: string, today: stri
   ]);
   return { ...parseMetric(metric), ...parseNextEarnings(earnings as Json, today) };
 }
+
+export interface CompanyFacts {
+  /** millions of shares */
+  sharesOutstanding: number | null;
+  industry: string | null;
+  /** the currency Finnhub reports the company in (CCJ: CAD, TSM: TWD): shares x price is only a USD cap when "USD" */
+  currency: string | null;
+}
+
+/** /stock/profile2: shares outstanding and industry. Funds (ETFs) have no profile: both null. */
+export function parseCompanyFacts(json: Json): CompanyFacts {
+  const shares = num(json.shareOutstanding);
+  const industry = typeof json.finnhubIndustry === "string" && json.finnhubIndustry.trim() ? json.finnhubIndustry.trim().slice(0, 60) : null;
+  const currency = typeof json.currency === "string" && /^[A-Z]{3}$/.test(json.currency) ? json.currency : null;
+  return { sharesOutstanding: shares !== null && shares > 0 ? shares : null, industry, currency };
+}
+
+export async function fetchCompanyFacts(symbol: string, key: string, deadline?: AbortSignal): Promise<CompanyFacts> {
+  return parseCompanyFacts(await get(`/stock/profile2?symbol=${encodeURIComponent(symbol)}`, key, deadline));
+}

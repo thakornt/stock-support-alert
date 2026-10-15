@@ -6,10 +6,13 @@ const finishAnalysis = vi.fn(async () => {});
 const cancelAnalysis = vi.fn(async () => {});
 const getAnalysis = vi.fn(async (): Promise<AnalysisView | null> => ({
   id: 7, createdAt: "2026-09-30T14:00:00.000Z", model: "m", goals: ["growth"], summary: "s", picks: [], caveats: [], universe: 2, skipped: [],
+  verdicts: [], formula: [], anonymized: false,
 }));
 vi.mock("@/lib/db/analyses", () => ({ startAnalysis, finishAnalysis, cancelAnalysis, getAnalysis }));
 vi.mock("@/lib/db/profiles", () => ({ listProfiles: vi.fn(async () => []) }));
 vi.mock("@/lib/db/supports", () => ({ listSupportTests: vi.fn(async () => []) }));
+vi.mock("@/lib/db/priceHistory", () => ({ closesBySymbol: vi.fn(async () => new Map()) }));
+vi.mock("@/lib/db/news", () => ({ latestBrief: vi.fn(async () => null) }));
 const listTrackedSymbols = vi.fn(async () => [
   { symbol: "NVDA", logoVersion: null, price: 180, quoteTime: null, asOf: null, refClose: 180, levels: [] },
   { symbol: "AMD", logoVersion: null, price: 150, quoteTime: null, asOf: null, refClose: 150, levels: [] },
@@ -156,7 +159,8 @@ describe("manualPrompt", () => {
   it("is the rules plus the same data with current prices, and needs no AI settings, reserves nothing, calls no AI", async () => {
     vi.stubEnv("AI_API_KEY", "");
     vi.stubEnv("AI_MODEL", "");
-    const text = await manualPrompt(["dividend"], NOW);
+    const { text, codes } = await manualPrompt(["dividend"], {}, NOW);
+    expect(codes).toBeNull();
     expect(text).toMatch(/Answer in readable Thai/);
     expect(text).toContain('"symbol":"NVDA","price":182.5');
     expect(text).toContain("Dividend income");
@@ -166,6 +170,6 @@ describe("manualPrompt", () => {
 
   it("says so when there is nothing to analyse", async () => {
     listTrackedSymbols.mockResolvedValueOnce([]);
-    await expect(manualPrompt([], NOW)).rejects.toMatchObject({ code: "no_symbols" });
+    await expect(manualPrompt([], {}, NOW)).rejects.toMatchObject({ code: "no_symbols" });
   });
 });

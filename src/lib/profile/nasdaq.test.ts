@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { currentTarget, describeProfile, type ProfileData } from "./describe";
-import { parseNasdaqTarget } from "./nasdaq";
+import { parseCompanyFacts } from "./finnhub";
+import { marketCapUsd, parseNasdaqMarketCap, parseNasdaqTarget } from "./nasdaq";
 
 describe("parseNasdaqTarget", () => {
   it("reads the consensus average, high and low", () => {
@@ -33,5 +34,26 @@ describe("currentTarget", () => {
     expect(fresh.footnote).toContain("ราคาเป้าหมายจาก Nasdaq");
     const old = describeProfile(profile({ targetMean: 591.14, targetUpdated: "2026-09-01", targetSource: "nasdaq" }), 533.69, "2026-10-15");
     expect(old.lines.find((l) => l.key === "target")).toBeUndefined();
+  });
+});
+
+describe("market cap in US dollars", () => {
+  it("reads Nasdaq's figure (it is already USD, ADRs included)", () => {
+    expect(parseNasdaqMarketCap({ data: { summaryData: { MarketCap: { label: "Market Cap", value: "2,230,819,489,308" } } } })).toBe(2230819489308);
+    expect(parseNasdaqMarketCap({ data: { summaryData: { MarketCap: { value: "N/A" } } } })).toBeNull();
+    expect(parseNasdaqMarketCap({ data: null, status: { bCodeMessage: [{ code: 1001 }] } })).toBeNull();
+  });
+
+  it("reads Finnhub's shares, industry and reporting currency (a fund has none)", () => {
+    expect(parseCompanyFacts({ shareOutstanding: 435.53, finnhubIndustry: "Energy", currency: "CAD" })).toEqual({ sharesOutstanding: 435.53, industry: "Energy", currency: "CAD" });
+    expect(parseCompanyFacts({})).toEqual({ sharesOutstanding: null, industry: null, currency: null });
+  });
+
+  it("falls back to shares x price only for a USD-reporting company: never for an ADR or a foreign filer", () => {
+    expect(marketCapUsd(2.23e12, { sharesOutstanding: 25932.37, currency: "TWD" }, 444)).toBe(2.23e12); // Nasdaq wins
+    expect(marketCapUsd(null, { sharesOutstanding: 60.8, currency: "USD" }, 5.68)).toBeCloseTo(60.8e6 * 5.68, 0); // KYTX
+    expect(marketCapUsd(null, { sharesOutstanding: 25932.37, currency: "TWD" }, 444)).toBeNull(); // TSM: would be 5x too big
+    expect(marketCapUsd(null, { sharesOutstanding: 435.53, currency: "CAD" }, 86)).toBeNull(); // CCJ
+    expect(marketCapUsd(null, { sharesOutstanding: null, currency: "USD" }, 10)).toBeNull();
   });
 });

@@ -6,7 +6,23 @@ const stored = { summary: "สรุป", picks: [{ rank: 1, symbol: "NVDA", pri
 
 describe("toView", () => {
   it("reads a stored result", () => {
-    expect(toView(row(stored))).toEqual({ id: 5, createdAt: "2026-10-05T07:53:40.822Z", model: "gemini-x", goals: ["growth", "dividend"], ...stored });
+    // a run stored before verdicts / the formula existed reads with empty ones
+    expect(toView(row(stored))).toEqual({
+      id: 5, createdAt: "2026-10-05T07:53:40.822Z", model: "gemini-x", goals: ["growth", "dividend"], ...stored,
+      verdicts: [], formula: [], anonymized: false,
+    });
+  });
+
+  it("reads verdicts and the formula ranking, and never trusts an odd fit label", () => {
+    const v = toView(row({
+      ...stored,
+      verdicts: [{ symbol: "KYTX", fit: "high", note: "n" }, { symbol: "NVDA", fit: "great", note: 5 }],
+      formula: [{ symbol: "KYTX", rank: 2, score: 61.5, coverage: 0.8, missingRequired: ["dividend"] }],
+      anonymized: true,
+    }));
+    expect(v.verdicts).toEqual([{ symbol: "KYTX", fit: "high", note: "n" }, { symbol: "NVDA", fit: "unknown", note: "" }]);
+    expect(v.formula[0]).toEqual({ symbol: "KYTX", rank: 2, score: 61.5, coverage: 0.8, missingRequired: ["dividend"] });
+    expect(v.anonymized).toBe(true);
   });
 
   it("reads a row written as a JSON string (postgres.js stringified an already-stringified value for jsonb)", () => {

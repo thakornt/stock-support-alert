@@ -249,3 +249,11 @@ create table if not exists price_history (
 
 -- Where the price target came from (finnhub on a paid plan, nasdaq otherwise). Display only.
 alter table stock_profiles add column if not exists target_source text;
+
+-- Company size and industry (Finnhub /stock/profile2, refreshed with the analyst figures). Shares, not the market cap
+-- Finnhub reports: that one is in the listing's home currency (CCJ: CAD), so the cap is shares x our USD price.
+alter table stock_profiles add column if not exists shares_outstanding double precision;  -- millions
+alter table stock_profiles add column if not exists industry text;
+-- USD market cap: Nasdaq's figure (it handles ADRs: TSM), else shares x price for USD-reported companies only.
+alter table stock_profiles add column if not exists market_cap double precision;  -- USD
+alter table stock_profiles add column if not exists market_cap_at timestamptz;

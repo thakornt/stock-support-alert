@@ -45,3 +45,37 @@ export async function fetchNasdaqTarget(symbol: string, deadline?: AbortSignal):
   });
   return parseNasdaqTarget(json);
 }
+
+/** "2,230,819,489,308" -> 2230819489308; anything else -> null. */
+export function parseNasdaqMarketCap(json: unknown): number | null {
+  const raw = (json as { data?: { summaryData?: { MarketCap?: { value?: unknown } } } | null } | null)?.data?.summaryData?.MarketCap?.value;
+  if (typeof raw !== "string") return null;
+  const n = Number(raw.replace(/[$,\s]/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** The USD market cap from Nasdaq's quote summary (handles ADRs). null = none; throws NasdaqError on a failed request. */
+export async function fetchNasdaqMarketCap(symbol: string, deadline?: AbortSignal): Promise<number | null> {
+  const signal = deadline ? AbortSignal.any([AbortSignal.timeout(TIMEOUT_MS), deadline]) : AbortSignal.timeout(TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`https://api.nasdaq.com/api/quote/${encodeURIComponent(symbol)}/summary?assetclass=stocks`, { headers: HEADERS, cache: "no-store", signal });
+  } catch (err) {
+    throw new NasdaqError(err instanceof Error ? err.message : "request failed");
+  }
+  if (!res.ok) throw new NasdaqError(`HTTP ${res.status}`);
+  const json = await res.json().catch(() => {
+    throw new NasdaqError("not JSON");
+  });
+  return parseNasdaqMarketCap(json);
+}
+
+/**
+ * The USD market cap to use: Nasdaq's when it has one; otherwise shares x price, but only for a company Finnhub reports
+ * in USD (for an ADR or a foreign filer, shares x the US price is wrong: TSM would come out 5x too big). Else unknown.
+ */
+export function marketCapUsd(nasdaq: number | null, facts: { sharesOutstanding: number | null; currency: string | null }, priceUsd: number | null): number | null {
+  if (nasdaq !== null) return nasdaq;
+  if (facts.currency === "USD" && facts.sharesOutstanding !== null && priceUsd !== null && priceUsd > 0) return facts.sharesOutstanding * 1e6 * priceUsd;
+  return null;
+}

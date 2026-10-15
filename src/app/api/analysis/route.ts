@@ -22,18 +22,19 @@ const STATUS: Record<AnalysisErrorCode, number> = {
 const usedToday = () => runsOnDay(nyToday()).catch(() => null);
 
 /**
- * POST { goals: GoalId[], model?: string } -> { analysis, used }. `model` must be one of the models in AI_MODEL. Behind the login (proxy.ts). Goals are checked against the fixed list, so
+ * POST { goals: GoalId[], model?: string, anonymous?: boolean } -> { analysis, used }. `model` must be one of the models in AI_MODEL. Behind the login (proxy.ts). Goals are checked against the fixed list, so
  * nothing the user types ever reaches the prompt.
  */
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { goals?: unknown; model?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { goals?: unknown; model?: unknown; anonymous?: unknown } | null;
   if (body === null || typeof body !== "object") return NextResponse.json({ error: "คำขอไม่ถูกต้อง" }, { status: 400 });
   const goals = parseGoals(body.goals ?? []);
   if (goals === null) return NextResponse.json({ error: "เป้าหมายไม่ถูกต้อง" }, { status: 400 });
   if (body.model !== undefined && typeof body.model !== "string") return NextResponse.json({ error: "โมเดลไม่ถูกต้อง" }, { status: 400 });
+  if (body.anonymous !== undefined && typeof body.anonymous !== "boolean") return NextResponse.json({ error: "ค่าซ่อนชื่อไม่ถูกต้อง" }, { status: 400 });
 
   try {
-    const analysis = await runAnalysis(goals, { model: body.model });
+    const analysis = await runAnalysis(goals, { model: body.model, anonymous: body.anonymous === true });
     return NextResponse.json({ analysis, used: await usedToday() });
   } catch (err) {
     if (err instanceof AnalysisError) return NextResponse.json({ error: err.message, used: await usedToday() }, { status: STATUS[err.code] });

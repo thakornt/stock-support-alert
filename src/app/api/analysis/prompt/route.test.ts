@@ -17,11 +17,15 @@ describe("POST /api/analysis/prompt", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
-  it("returns the text to paste, for the chosen goals", async () => {
-    manualPrompt.mockResolvedValue("PROMPT");
+  it("returns the text to paste, for the chosen goals, and the code key when names are hidden", async () => {
+    manualPrompt.mockResolvedValue({ text: "PROMPT", codes: null });
     const res = await post({ goals: ["value", "growth"] });
-    expect(await res.json()).toEqual({ text: "PROMPT" });
-    expect(manualPrompt).toHaveBeenCalledWith(["growth", "value"]);
+    expect(await res.json()).toEqual({ text: "PROMPT", codes: null });
+    expect(manualPrompt).toHaveBeenCalledWith(["growth", "value"], { anonymous: false });
+    manualPrompt.mockResolvedValue({ text: "P", codes: { S01: "NVDA" } });
+    expect(await (await post({ anonymous: true })).json()).toEqual({ text: "P", codes: { S01: "NVDA" } });
+    expect(manualPrompt).toHaveBeenLastCalledWith([], { anonymous: true });
+    expect((await post({ anonymous: "yes" })).status).toBe(400);
   });
 
   it("rejects bad input, and reports 'nothing to analyse' and failures without details", async () => {

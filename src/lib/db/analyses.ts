@@ -1,4 +1,4 @@
-import { GOAL_IDS, type AnalysisPick, type AnalysisView, type GoalId } from "@/lib/analysis/types";
+import { FITS, GOAL_IDS, type AnalysisPick, type AnalysisView, type Fit, type FormulaEntry, type GoalId, type Verdict } from "@/lib/analysis/types";
 import { sql } from "./client";
 
 /** What is stored in `result` when a run succeeds. */
@@ -8,6 +8,9 @@ export interface StoredResult {
   caveats: string[];
   universe: number;
   skipped?: { model: string; reason: string }[];
+  verdicts?: Verdict[];
+  formula?: FormulaEntry[];
+  anonymized?: boolean;
 }
 
 /**
@@ -71,6 +74,13 @@ export function toView(r: Row): AnalysisView {
     caveats: list<string>(result.caveats),
     universe: typeof result.universe === "number" ? result.universe : 0,
     skipped: list<{ model: string; reason: string }>(result.skipped),
+    verdicts: list<Verdict>(result.verdicts).map((v) => ({
+      symbol: String(v.symbol ?? ""),
+      fit: (FITS as readonly string[]).includes(v.fit) ? (v.fit as Fit) : "unknown",
+      note: typeof v.note === "string" ? v.note : "",
+    })),
+    formula: list<FormulaEntry>(result.formula).map((f) => ({ ...f, missingRequired: list<string>(f.missingRequired) })),
+    anonymized: result.anonymized === true,
   };
 }
 
