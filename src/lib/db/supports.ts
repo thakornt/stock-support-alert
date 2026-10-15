@@ -92,3 +92,10 @@ export async function listSupportTests(): Promise<StoredTest[]> {
            expected_held as "expectedHeld"
     from support_tests order by symbol, touched_on`;
 }
+
+/** One symbol's touches from `from` (YYYY-MM-DD) on, for the price chart. */
+export async function listTouches(symbol: string, from: string): Promise<{ d: string; level: number; tier: Tier; outcome: string }[]> {
+  return sql()<{ d: string; level: number; tier: Tier; outcome: string }[]>`
+    select touched_on::text as d, level::float8 as level, tier, outcome
+    from support_tests where symbol = ${symbol} and touched_on >= ${from} order by touched_on`;
+}

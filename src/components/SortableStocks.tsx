@@ -17,7 +17,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { DEFAULT_RULES } from "@/lib/alerts/evaluate";
 import { apiFetch } from "@/lib/apiFetch";
 import { formatDateString, formatDateTime } from "@/lib/format/datetime";
@@ -27,6 +27,7 @@ import type { TierRecord, TrackSummary } from "@/lib/support/track";
 import { METHOD_LABEL, TIER_LABEL_TH, type Method, type Tier } from "@/lib/support/types";
 import { CheckIcon, CopyIcon, GripIcon, RefreshIcon } from "./icons";
 import { Spinner } from "./Spinner";
+import { PriceChart } from "./PriceChart";
 import { StockLogo } from "./StockLogo";
 import { TierBadge } from "./TierBadge";
 
@@ -116,10 +117,10 @@ function ProfileSection({
 }) {
   const view = describeProfile(profile ?? undefined, price, today);
   if (view.lines.length === 0) {
-    return <p className="mt-4 text-xs text-muted">ข้อมูลพื้นฐานและความเสี่ยงจะแสดงหลังรอบอัปเดตรายวัน</p>;
+    return <p className="text-xs text-muted">ข้อมูลพื้นฐานและความเสี่ยงจะแสดงหลังรอบอัปเดตรายวัน</p>;
   }
   return (
-    <details open className="group mt-4 rounded-xl border border-border bg-background/40">
+    <details open className="group rounded-xl border border-border bg-background/40">
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
         <span className="flex-1">ข้อมูลพื้นฐานและความเสี่ยง</span>
         {copyable && <CopyButton text={() => profileText(symbol, price, today, view)} />}
@@ -203,24 +204,13 @@ function StockCard({
           {s.levels.map((l) => {
             const dist = s.price !== null ? ((s.price - l.price) / l.price) * 100 : null;
             const touched = s.price !== null && s.price <= l.price * (1 + DEFAULT_RULES.touchTolerance);
-            const record = recordText(s.track.records[l.tier]);
             return (
-              <li
-                key={l.tier}
-                className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-3 py-2.5 sm:grid-cols-[9.5rem_1fr_auto]"
-              >
-                <div className="justify-self-start">
+              <li key={l.tier} className="flex items-center gap-3 px-3 py-2">
+                <span className="w-28 shrink-0">
                   <TierBadge tier={l.tier} />
-                </div>
-                <div className="order-3 col-span-2 flex flex-wrap items-baseline gap-x-2 sm:order-none sm:col-span-1">
-                  <span className="font-mono text-base tabular-nums">{usd(l.price)}</span>
-                  <span className="text-xs text-muted">
-                    {METHOD_LABEL[l.method as Method] ?? l.method}
-                    {l.zoneLow !== null && l.zoneLow < l.price && ` · โซน ${usd(l.zoneLow)}–${usd(l.price)}`}
-                    {l.touches !== null && ` · เคยเด้ง ${l.touches} ครั้ง`}
-                  </span>
-                </div>
-                <div className="justify-self-end font-mono text-sm tabular-nums">
+                </span>
+                <span className="flex-1 font-mono text-base tabular-nums">{usd(l.price)}</span>
+                <span className="text-right font-mono text-sm tabular-nums">
                   {touched ? (
                     <span className="flex flex-col items-end gap-0.5">
                       <span className="rounded-md bg-danger/15 px-2 py-0.5 font-sans text-xs font-semibold text-danger ring-1 ring-danger/30">
@@ -232,27 +222,77 @@ function StockCard({
                   ) : dist !== null ? (
                     <span className={dist < 2 ? "text-warning" : "text-muted"}>+{dist.toFixed(1)}%</span>
                   ) : null}
-                </div>
-                {record && <p className="order-4 col-span-full text-[11px] text-muted">{record}</p>}
+                </span>
               </li>
             );
           })}
         </ul>
       )}
-      {s.track.since && s.levels.length > 0 && !dragging && (
-        <p className="mt-2 text-[11px] leading-relaxed text-muted">
-          &quot;ย้อนหลัง&quot; = ใช้วิธีคำนวณปัจจุบันกับราคาจริงของหุ้นตัวนี้ตั้งแต่ {formatDateString(s.track.since)} ทุกครั้งที่ราคาแตะระดับ
-          นับว่ารับได้เมื่อราคาปิดเด้งขึ้นเกิน 3% ก่อนจะปิดต่ำกว่าระดับเกิน 3% (ภายใน 20 วันทำการ) · &quot;ระดับมั่ว&quot; = เอาระยะห่างเท่ากันไปวางในวันอื่น ๆ
-          ของหุ้นตัวนี้ ถ้าแนวรับรับได้ไม่มากกว่าระดับมั่ว ก็ไม่ได้มีความหมายพิเศษ — สถิติในอดีต ไม่ใช่การรับประกัน
-        </p>
-      )}
-      {!dragging && <ProfileSection symbol={s.symbol} profile={s.profile} price={s.price} today={today} copyable={!readOnly} />}
-      {s.asOf && !dragging && (
-        <p className="mt-3 text-xs text-muted">
-          คำนวณจากข้อมูลถึง {formatDateString(s.asOf)} (close <span className="font-mono">{usd(s.refClose ?? 0)}</span>)
-        </p>
-      )}
+      {!dragging && <CardDetails stock={s} today={today} readOnly={readOnly} />}
     </>
+  );
+}
+
+/**
+ * Everything beyond the price and the three levels, folded away so a phone shows several cards per screen: the price
+ * chart (loaded only when opened), how each level was found and how it held up before, fundamentals and risk.
+ */
+function CardDetails({ stock: s, today, readOnly }: { stock: StockCardData; today: string; readOnly: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDetailsElement>(null);
+  // opened before the page finished loading (a slow phone): the browser opened it but React never saw the toggle
+  useEffect(() => {
+    if (ref.current?.open) setOpen(true);
+  }, []);
+  return (
+    // suppressHydrationWarning: a visitor may open it before React has loaded; that `open` is theirs, not a mismatch
+    <details ref={ref} className="group/details mt-3" onToggle={(e) => setOpen(e.currentTarget.open)} suppressHydrationWarning>
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg px-1 text-sm text-muted transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true" className="size-4 transition-transform duration-200 group-open/details:rotate-90">
+          <path d="m9 6 6 6-6 6" />
+        </svg>
+        <span className="group-open/details:hidden">กราฟ สถิติย้อนหลัง และข้อมูลพื้นฐาน</span>
+        <span className="hidden group-open/details:inline">ซ่อนรายละเอียด</span>
+      </summary>
+
+      {open && (
+        <div className="mt-2 space-y-4">
+          {s.levels.length > 0 && <PriceChart symbol={s.symbol} levels={s.levels.map((l) => ({ tier: l.tier, price: l.price }))} />}
+
+          {s.levels.length > 0 && (
+            <dl className="divide-y divide-border rounded-xl border border-border bg-background/40">
+              {s.levels.map((l) => {
+                const record = recordText(s.track.records[l.tier]);
+                return (
+                  <div key={l.tier} className="space-y-0.5 px-3 py-2.5">
+                    <dt className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                      <span className="font-medium">{TIER_LABEL_TH[l.tier]}</span>
+                      <span className="font-mono tabular-nums">{usd(l.price)}</span>
+                    </dt>
+                    <dd className="text-xs text-muted">
+                      {METHOD_LABEL[l.method as Method] ?? l.method}
+                      {l.zoneLow !== null && l.zoneLow < l.price && ` · โซน ${usd(l.zoneLow)}–${usd(l.price)}`}
+                      {l.touches !== null && ` · เคยเด้ง ${l.touches} ครั้ง`}
+                    </dd>
+                    {record && <dd className="text-[11px] text-muted">{record}</dd>}
+                  </div>
+                );
+              })}
+              {s.track.since && (
+                <p className="px-3 py-2 text-[11px] text-muted">สถิติย้อนหลังนับตั้งแต่ {formatDateString(s.track.since)} (คำอธิบายอยู่ด้านบนของหน้า)</p>
+              )}
+            </dl>
+          )}
+
+          <ProfileSection symbol={s.symbol} profile={s.profile} price={s.price} today={today} copyable={!readOnly} />
+          {s.asOf && (
+            <p className="text-xs text-muted">
+              คำนวณจากข้อมูลถึง {formatDateString(s.asOf)} (close <span className="font-mono">{usd(s.refClose ?? 0)}</span>)
+            </p>
+          )}
+        </div>
+      )}
+    </details>
   );
 }
 

@@ -71,6 +71,26 @@ export default async function DashboardPage() {
           กำลัง track {stocks.length} ตัว · ข้อมูลจากรอบเช็คล่าสุด · แจ้งเตือนทาง LINE เฉพาะ{" "}
           {alertTiers.map((t) => TIER_LABEL_TH[t]).join(", ")}
         </p>
+        {/* once for the page instead of under every card */}
+        <details className="group mt-2 text-xs text-muted">
+          <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 hover:text-foreground [&::-webkit-details-marker]:hidden">
+            <span className="underline decoration-dotted underline-offset-4">วิธีอ่านตัวเลขในการ์ด</span>
+          </summary>
+          <ul className="mt-1 max-w-2xl list-disc space-y-1 pl-5 leading-relaxed">
+            <li>
+              <span className="text-foreground">+3.8%</span> = ราคาตอนนี้อยู่เหนือแนวรับกี่เปอร์เซ็นต์ (สีเหลืองเมื่อใกล้กว่า 2%) ·{" "}
+              <span className="text-foreground">แตะแล้ว</span> = ราคาลงมาถึงแนวรับแล้ว
+            </li>
+            <li>
+              &quot;ย้อนหลัง&quot; = ใช้วิธีคำนวณปัจจุบันกับราคาจริงของหุ้นตัวนั้นย้อนหลัง (ประมาณ 5 ปี) ทุกครั้งที่ราคาแตะระดับ นับว่ารับได้เมื่อราคาปิดเด้งขึ้นเกิน 3%
+              ก่อนจะปิดต่ำกว่าระดับเกิน 3% (ภายใน 20 วันทำการ) — จุดเหล่านี้คือจุดเขียว/วงแดงบนกราฟ
+            </li>
+            <li>
+              &quot;ระดับมั่ว&quot; = เอาระยะห่างเท่ากันไปวางในวันอื่น ๆ ของหุ้นตัวนั้น ถ้าแนวรับรับได้ไม่มากกว่าระดับมั่ว ก็ไม่ได้มีความหมายพิเศษ — สถิติในอดีต
+              ไม่ใช่การรับประกัน
+            </li>
+          </ul>
+        </details>
       </div>
       {/* key: remount with the server order whenever the symbol list/order changes */}
       <SortableStocks key={cards.map((c) => c.symbol).join(",")} initial={cards} today={today} readOnly={!owner} />

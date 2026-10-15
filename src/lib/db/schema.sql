@@ -237,3 +237,12 @@ create index if not exists news_briefs_day_idx on news_briefs (day);
 -- friend (meant for the owner's own account). Everyone else is shown as a placeholder; names and ids never leave the
 -- server for visitors.
 alter table line_users add column if not exists public_photo boolean not null default false;
+
+-- Daily closes for the price chart under each card (completed sessions, about 5 years), saved by the daily
+-- recalculation from the history it already fetches: no extra API calls. Display only.
+create table if not exists price_history (
+  symbol  text not null references symbols(symbol) on delete cascade,
+  day     date not null,
+  close   numeric(14, 4) not null,
+  primary key (symbol, day)
+);

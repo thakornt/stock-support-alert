@@ -1,5 +1,6 @@
 import { config } from "@/lib/config";
 import { addSymbol, listSymbols, removeSymbol } from "@/lib/db/symbols";
+import { savePriceHistory } from "@/lib/db/priceHistory";
 import { saveHistoryStats } from "@/lib/db/profiles";
 import { loadStates, stateKey } from "@/lib/db/alerts";
 import { listSupports, replaceSupports, replaceSupportTests, supportAsOfBySymbol } from "@/lib/db/supports";
@@ -82,6 +83,7 @@ export async function recalculate(symbols: string[], now: Date, opts: { force?: 
       const stats = historyStats(completed);
       if (stats) await saveHistoryStats(symbol, stats).catch((e) => console.error("history stats failed", symbol, e));
       await replaceSupportTests(symbol, trackLevels(completed)).catch((e) => console.error("level history failed", symbol, e));
+      await savePriceHistory(symbol, completed).catch((e) => console.error("price history failed", symbol, e));
       summary.updated.push(symbol);
     } catch (err) {
       summary.errors[symbol] = err instanceof Error ? err.message : String(err);
