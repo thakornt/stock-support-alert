@@ -25,7 +25,8 @@ export async function POST(request: Request) {
       try {
         const result = await recalculateEverything(new Date(), { force });
         const logos = await backfillLogos({ limit: 3 }).catch(() => null);
-        const fundamentals = await refreshFundamentals().catch(() => null);
+        // in the background there is time to spare: analyst targets (Nasdaq) answer in 1-4 s each
+        const fundamentals = await refreshFundamentals({ deadlineMs: 60_000 }).catch(() => null);
         console.log("recalculate (async)", JSON.stringify({ ...result, logos, fundamentals }));
       } catch (err) {
         console.error("recalculate (async) failed", err);

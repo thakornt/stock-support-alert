@@ -29,11 +29,13 @@ export interface AnalystView {
   targetHigh: number | null;
   targetLow: number | null;
   targetUpdated: string | null; // YYYY-MM-DD
+  /** who supplied the target: "finnhub" (paid plans) or "nasdaq" */
+  targetSource: string | null;
 }
 
 export const NO_ANALYSTS: AnalystView = {
   recStrongBuy: null, recBuy: null, recHold: null, recSell: null, recStrongSell: null, recPeriod: null,
-  targetMean: null, targetHigh: null, targetLow: null, targetUpdated: null,
+  targetMean: null, targetHigh: null, targetLow: null, targetUpdated: null, targetSource: null,
 };
 
 /** The most recent month of /stock/recommendation (a list, newest first in practice; sorted here to be sure). */
@@ -53,7 +55,7 @@ export function parseRecommendations(json: unknown): Pick<AnalystView, "recStron
   };
 }
 
-export function parsePriceTarget(json: Json): Pick<AnalystView, "targetMean" | "targetHigh" | "targetLow" | "targetUpdated"> {
+export function parsePriceTarget(json: Json): Pick<AnalystView, "targetMean" | "targetHigh" | "targetLow" | "targetUpdated" | "targetSource"> {
   const mean = num(json.targetMean);
   const updated = typeof json.lastUpdated === "string" ? json.lastUpdated.slice(0, 10) : null;
   return {
@@ -61,6 +63,7 @@ export function parsePriceTarget(json: Json): Pick<AnalystView, "targetMean" | "
     targetHigh: num(json.targetHigh),
     targetLow: num(json.targetLow),
     targetUpdated: updated && /^\d{4}-\d{2}-\d{2}$/.test(updated) ? updated : null,
+    targetSource: mean !== null && mean > 0 ? "finnhub" : null,
   };
 }
 

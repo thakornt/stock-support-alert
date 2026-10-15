@@ -228,10 +228,10 @@ describe("Finnhub analyst parsers", () => {
 
   it("reads the price target, ignoring an empty one", () => {
     expect(parsePriceTarget({ targetMean: 586.13, targetHigh: 700, targetLow: 450, lastUpdated: "2026-10-05 00:00:00" })).toEqual({
-      targetMean: 586.13, targetHigh: 700, targetLow: 450, targetUpdated: "2026-10-05",
+      targetMean: 586.13, targetHigh: 700, targetLow: 450, targetUpdated: "2026-10-05", targetSource: "finnhub",
     });
     expect(parsePriceTarget({ targetMean: 0 }).targetMean).toBeNull();
-    expect(parsePriceTarget({})).toMatchObject({ targetMean: null, targetUpdated: null });
+    expect(parsePriceTarget({})).toMatchObject({ targetMean: null, targetUpdated: null, targetSource: null });
   });
 
   it("asks for the price target only until Finnhub says it is not on this plan, and never throws", async () => {

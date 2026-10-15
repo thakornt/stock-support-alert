@@ -30,17 +30,27 @@ export async function saveFundamentals(symbol: string, f: Fundamentals) {
       earnings_hour = excluded.earnings_hour, fundamentals_at = now()`;
 }
 
-export async function saveAnalysts(symbol: string, a: AnalystView) {
-  await sql()`
+/**
+ * `keepTarget`: the target source could not be reached this time, so the stored target stays as it was (it stops being
+ * shown once it is old, see describeTarget) instead of being wiped by a passing failure.
+ */
+export async function saveAnalysts(symbol: string, a: AnalystView, { keepTarget = false }: { keepTarget?: boolean } = {}) {
+  const db = sql();
+  await db`
     insert into stock_profiles (symbol, rec_strong_buy, rec_buy, rec_hold, rec_sell, rec_strong_sell, rec_period,
-                                target_mean, target_high, target_low, target_updated, analysts_at)
+                                target_mean, target_high, target_low, target_updated, target_source, analysts_at)
     values (${symbol}, ${a.recStrongBuy}, ${a.recBuy}, ${a.recHold}, ${a.recSell}, ${a.recStrongSell}, ${a.recPeriod},
-            ${a.targetMean}, ${a.targetHigh}, ${a.targetLow}, ${a.targetUpdated}, now())
+            ${a.targetMean}, ${a.targetHigh}, ${a.targetLow}, ${a.targetUpdated}, ${a.targetSource}, now())
     on conflict (symbol) do update set
       rec_strong_buy = excluded.rec_strong_buy, rec_buy = excluded.rec_buy, rec_hold = excluded.rec_hold,
       rec_sell = excluded.rec_sell, rec_strong_sell = excluded.rec_strong_sell, rec_period = excluded.rec_period,
-      target_mean = excluded.target_mean, target_high = excluded.target_high, target_low = excluded.target_low,
-      target_updated = excluded.target_updated, analysts_at = now()`;
+      ${
+        keepTarget
+          ? db``
+          : db`target_mean = excluded.target_mean, target_high = excluded.target_high, target_low = excluded.target_low,
+               target_updated = excluded.target_updated, target_source = excluded.target_source,`
+      }
+      analysts_at = now()`;
 }
 
 /** Of `symbols`, those whose analyst figures are missing or older than `maxAgeHours`. */
@@ -73,6 +83,7 @@ export async function listProfiles(): Promise<StockProfile[]> {
            next_earnings::text as "nextEarnings", earnings_hour as "earningsHour", fundamentals_at as "fundamentalsAt",
            rec_strong_buy as "recStrongBuy", rec_buy as "recBuy", rec_hold as "recHold", rec_sell as "recSell",
            rec_strong_sell as "recStrongSell", rec_period::text as "recPeriod", target_mean as "targetMean",
-           target_high as "targetHigh", target_low as "targetLow", target_updated::text as "targetUpdated"
+           target_high as "targetHigh", target_low as "targetLow", target_updated::text as "targetUpdated",
+           target_source as "targetSource"
     from stock_profiles`;
 }

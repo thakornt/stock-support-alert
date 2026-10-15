@@ -225,9 +225,20 @@ function describeAnalysts(p: ProfileData): ProfileLine | null {
   };
 }
 
+/** A target not refreshed for this long (its source kept failing) is not shown. */
+export const TARGET_MAX_AGE_DAYS = 14;
+
+/** The average target if it is recent enough to show (see TARGET_MAX_AGE_DAYS), else null. */
+export function currentTarget(p: ProfileData, today: string): number | null {
+  if (p.targetMean === null || p.targetMean === undefined) return null;
+  if (!p.targetUpdated) return p.targetMean;
+  const age = (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${p.targetUpdated}T00:00:00Z`)) / 86_400_000;
+  return age > TARGET_MAX_AGE_DAYS ? null : p.targetMean;
+}
+
 /** The average 12-month price target, against the price on the card. */
-function describeTarget(p: ProfileData, price: number | null): ProfileLine | null {
-  const t = p.targetMean ?? null;
+function describeTarget(p: ProfileData, price: number | null, today: string): ProfileLine | null {
+  const t = currentTarget(p, today);
   const now = price ?? p.lastClose ?? null;
   if (t === null || now === null || now <= 0) return null;
   const gap = (t / now - 1) * 100;
@@ -256,12 +267,13 @@ export function describeProfile(p: ProfileData | undefined, price: number | null
     describeDrawdown(p, today),
     describeEarnings(p, today),
     describeAnalysts(p),
-    describeTarget(p, price),
+    describeTarget(p, price, today),
   ].filter((l): l is ProfileLine => l !== null);
 
   const parts: string[] = [];
   if (p.fundamentalsAt) parts.push(`ข้อมูลพื้นฐาน ณ ${formatDateString(p.fundamentalsAt.slice(0, 10))} จาก Finnhub`);
-  if (p.recPeriod || p.targetMean) parts.push("คำแนะนำ/ราคาเป้าหมายนักวิเคราะห์จาก Finnhub");
+  if (p.recPeriod) parts.push("คำแนะนำนักวิเคราะห์จาก Finnhub");
+  if (currentTarget(p, today) !== null) parts.push(`ราคาเป้าหมายจาก ${p.targetSource === "finnhub" ? "Finnhub" : "Nasdaq"}`);
   if (p.historyAt) parts.push(`ราคาย้อนหลังจาก Twelve Data`);
   parts.push("เกณฑ์ที่ใช้แปลความหมายเป็นค่าประมาณทั่วไป ไม่ใช่คำแนะนำการลงทุน");
   return { lines, footnote: lines.length ? parts.join(" · ") : null };

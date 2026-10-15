@@ -1,5 +1,5 @@
 import type { StockNews } from "@/lib/news/types";
-import type { ProfileData } from "@/lib/profile/describe";
+import { currentTarget, type ProfileData } from "@/lib/profile/describe";
 import type { TrackedSymbol } from "@/lib/db/symbols";
 import type { TrackSummary } from "@/lib/support/track";
 import { METHOD_LABEL, type Method, type Tier } from "@/lib/support/types";
@@ -96,7 +96,7 @@ export function buildStockInput(
       };
     }),
     recentBreak: brk !== null && stillBelow ? { tier: brk.tier, level: round(brk.level, 2)!, date: brk.resolvedOn ?? brk.touchedOn } : null,
-    analysts: analystsOf(p, price),
+    analysts: analystsOf(p, price, today),
     news: news
       ? { direction: news.direction, impact: news.impact, summary: news.summary, points: news.points.map((x) => `(${x.kind}) ${x.text}`) }
       : null,
@@ -116,12 +116,12 @@ Rules:
 - Write in Thai. Keep each reason/risk to one short sentence that cites a number from the data.`;
 
 /** The in-app run parses the reply, so it must be JSON. */
-function analystsOf(p: ProfileData | undefined, price: number | null): StockInput["analysts"] {
+function analystsOf(p: ProfileData | undefined, price: number | null, today: string): StockInput["analysts"] {
   if (!p) return null;
   const buy = (p.recStrongBuy ?? 0) + (p.recBuy ?? 0);
   const hold = p.recHold ?? 0;
   const sell = (p.recSell ?? 0) + (p.recStrongSell ?? 0);
-  const target = p.targetMean ?? null;
+  const target = currentTarget(p, today);
   if (!p.recPeriod && target === null) return null;
   return {
     buy,

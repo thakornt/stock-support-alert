@@ -246,3 +246,6 @@ create table if not exists price_history (
   close   numeric(14, 4) not null,
   primary key (symbol, day)
 );
+
+-- Where the price target came from (finnhub on a paid plan, nasdaq otherwise). Display only.
+alter table stock_profiles add column if not exists target_source text;

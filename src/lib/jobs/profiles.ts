@@ -1,6 +1,7 @@
 import { saveAnalysts, saveFundamentals, symbolsNeedingAnalysts, symbolsNeedingFundamentals } from "@/lib/db/profiles";
 import { nyToday } from "@/lib/market/calendar";
 import { fetchAnalysts, fetchFundamentals } from "@/lib/profile/finnhub";
+import { fetchNasdaqTarget, NasdaqError } from "@/lib/profile/nasdaq";
 
 /** Fundamentals change quarterly; refreshing once a day is plenty. */
 const MAX_AGE_HOURS = 20;
@@ -41,7 +42,20 @@ export async function refreshFundamentals({
         updated.push(symbol);
         if (analystsDue.has(symbol) && !deadline.aborted) {
           try {
-            await saveAnalysts(symbol, await fetchAnalysts(symbol, key, targets, deadline));
+            const analysts = await fetchAnalysts(symbol, key, targets, deadline);
+            // Finnhub's free plan has no price targets: Nasdaq's (unofficial) instead. A failed request keeps the old one.
+            let keepTarget = false;
+            if (analysts.targetMean === null && !deadline.aborted) {
+              try {
+                const t = await fetchNasdaqTarget(symbol, deadline);
+                if (t) Object.assign(analysts, t, { targetUpdated: today, targetSource: "nasdaq" });
+              } catch (e) {
+                if (!(e instanceof NasdaqError)) throw e;
+                keepTarget = true;
+                console.error("nasdaq price target failed", symbol, e.message);
+              }
+            }
+            await saveAnalysts(symbol, analysts, { keepTarget });
           } catch (e) {
             console.error("analysts failed", symbol, e); // best effort: never fails the fundamentals
           }

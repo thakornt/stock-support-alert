@@ -27,6 +27,7 @@ import { pendingBreak, type TierRecord, type TrackSummary } from "@/lib/support/
 import { METHOD_LABEL, TIER_LABEL_TH, type Method, type Tier } from "@/lib/support/types";
 import { CheckIcon, CopyIcon, GripIcon, RefreshIcon } from "./icons";
 import { Spinner } from "./Spinner";
+import { AnalystPanel } from "./AnalystPanel";
 import { PriceChart } from "./PriceChart";
 import { StockLogo } from "./StockLogo";
 import { TierBadge } from "./TierBadge";
@@ -129,7 +130,8 @@ function ProfileSection({
         </svg>
       </summary>
       <dl className="divide-y divide-border border-t border-border">
-        {view.lines.map((l) => (
+        {/* analysts and targets have their own panel above (the copied text still has them) */}
+        {view.lines.filter((l) => l.key !== "analysts" && l.key !== "target").map((l) => (
           <div key={l.key} className="px-3 py-2.5">
             <div className="flex items-baseline justify-between gap-3">
               <dt className="flex items-center gap-1.5 text-xs text-muted">
@@ -269,6 +271,8 @@ function CardDetails({ stock: s, today, readOnly }: { stock: StockCardData; toda
       {open && (
         <div className="mt-2 space-y-4">
           {s.levels.length > 0 && <PriceChart symbol={s.symbol} levels={s.levels.map((l) => ({ tier: l.tier, price: l.price }))} />}
+
+          <AnalystPanel profile={s.profile} price={s.price} levels={s.levels.map((l) => ({ tier: l.tier, price: l.price }))} today={today} />
 
           {s.levels.length > 0 && (
             <dl className="divide-y divide-border rounded-xl border border-border bg-background/40">
