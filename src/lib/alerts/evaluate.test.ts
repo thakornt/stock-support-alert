@@ -47,3 +47,13 @@ describe("sameScale", () => {
     expect(sameScale(352, 176)).toBe(false); // 1-for-2 reverse split
   });
 });
+
+import { classifyTouch } from "./evaluate";
+describe("classifyTouch", () => {
+  it("separates touch, broken and gap_broken", () => {
+    expect(classifyTouch(100.2, 100, 103)).toBe("touch");
+    expect(classifyTouch(99, 100, 103)).toBe("touch");
+    expect(classifyTouch(96, 100, 99)).toBe("broken");
+    expect(classifyTouch(90, 100, 104)).toBe("gap_broken");
+  });
+});

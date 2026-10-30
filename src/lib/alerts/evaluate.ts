@@ -65,3 +65,23 @@ export function evaluateTier(
   }
   return "alert";
 }
+
+export type TouchStatus = "touch" | "broken" | "gap_broken";
+
+/** Price this far under the level (fraction) is no longer a "touch" but a break. */
+export const BREAK_BELOW = 0.02;
+/** Previous close above the level and price this far under it = the level was jumped over by a gap. */
+export const GAP_BELOW = 0.05;
+
+/**
+ * What the alert should call the event:
+ *  - touch: price is at the level, or less than BREAK_BELOW under it
+ *  - broken: price is more than BREAK_BELOW under the level (the support did not hold so far)
+ *  - gap_broken: yesterday closed above the level and price is now more than GAP_BELOW under it: the level was never
+ *    tested, it was gapped through, so "buy at support" does not apply until new supports are computed
+ */
+export function classifyTouch(price: number, level: number, prevClose?: number): TouchStatus {
+  if (prevClose !== undefined && prevClose > level && price < level * (1 - GAP_BELOW)) return "gap_broken";
+  if (price < level * (1 - BREAK_BELOW)) return "broken";
+  return "touch";
+}

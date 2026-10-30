@@ -1,5 +1,6 @@
 import { formatDateString } from "@/lib/format/datetime";
 import { packBlocks } from "@/lib/line/text";
+import { classifyTouch } from "./evaluate";
 import type { LateEvent } from "./lateCheck";
 import { METHOD_LABEL, TIER_LABEL_TH, type Method, type Tier } from "@/lib/support/types";
 
@@ -11,6 +12,8 @@ export interface AlertItem {
   level: number;
   /** Set in once-a-day mode: the day's low, which may be what actually touched the level. */
   dayLow?: number;
+  /** previous close, used to tell a gap through the level from a normal touch */
+  prevClose?: number;
 }
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
@@ -23,15 +26,24 @@ export function formatAlertMessages(items: AlertItem[], timeLabel: string): stri
   const blocks = items.map((a) => {
     const diff = ((a.price - a.level) / a.level) * 100;
     const diffText = `${diff >= 0 ? "+" : ""}${diff.toFixed(2)}%`;
+    const status = classifyTouch(a.price, a.level, a.prevClose);
+    const title =
+      status === "touch"
+        ? `${a.symbol} แตะ "${TIER_LABEL_TH[a.tier]}"`
+        : status === "broken"
+          ? `${a.symbol} หลุด "${TIER_LABEL_TH[a.tier]}" (ราคาต่ำกว่าแนวรับ)`
+          : `${a.symbol} Gap ทะลุ "${TIER_LABEL_TH[a.tier]}" (ไม่ได้ทดสอบแนวรับ รอแนวใหม่)`;
     return [
-      `${a.symbol} แตะ "${TIER_LABEL_TH[a.tier]}"`,
+      title,
       `• ราคาปัจจุบัน: ${usd(a.price)}`,
       `• แนวรับ: ${usd(a.level)} (${METHOD_LABEL[a.method]})`,
       `• ห่างจากแนวรับ: ${diffText}`,
       ...(a.dayLow !== undefined ? [`• ต่ำสุดวันนี้: ${usd(a.dayLow)}`] : []),
     ].join("\n");
   });
-  return packBlocks(blocks, { header: `🔔 แจ้งเตือนแนวรับหุ้น US · ${timeLabel}\n` });
+  const count = (s: string) => items.filter((a) => classifyTouch(a.price, a.level, a.prevClose) === s).length;
+  const summary = `แตะ ${count("touch")} · หลุด ${count("broken")} · Gap ทะลุ ${count("gap_broken")} (แนวรับที่หลุดไม่ใช่สัญญาณซื้อ ให้เช็กกราฟ/ข่าวก่อน)`;
+  return packBlocks(blocks, { header: `🔔 แจ้งเตือนแนวรับหุ้น US · ${timeLabel}\n${summary}\n` });
 }
 
 /** A late event plus what replaces the level from tomorrow (null = no level of that tier below the price any more). */

@@ -144,6 +144,7 @@ async function runCheck(now: Date, daily: boolean, summary: CheckSummary): Promi
             price,
             level: s.price,
             dayLow: daily ? quotes.lows[s.symbol] : undefined,
+            prevClose: quotes.prevCloses[s.symbol],
           },
           previousAlertAt: state?.lastAlertAt ?? null,
         });
