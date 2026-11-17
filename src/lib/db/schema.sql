@@ -257,3 +257,9 @@ alter table stock_profiles add column if not exists industry text;
 -- USD market cap: Nasdaq's figure (it handles ADRs: TSM), else shares x price for USD-reported companies only.
 alter table stock_profiles add column if not exists market_cap double precision;  -- USD
 alter table stock_profiles add column if not exists market_cap_at timestamptz;
+
+-- A brief that fails is kept as 'failed' with the reason (it used to be deleted, which left no trace of why a morning
+-- brief was missing). Failed rows, and pending ones older than the function's 5 minutes, do not count toward the limit.
+alter table news_briefs add column if not exists error text;
+alter table news_briefs drop constraint if exists news_briefs_status_check;
+alter table news_briefs add constraint news_briefs_status_check check (status in ('pending', 'ok', 'failed'));

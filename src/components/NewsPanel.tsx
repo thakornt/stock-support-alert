@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/apiFetch";
 import { formatDateTime } from "@/lib/format/datetime";
 import {
@@ -166,11 +167,22 @@ function Brief({ b }: { b: NewsBriefView }) {
   );
 }
 
+/** What the page knows about briefs being made (from GET /api/news/status). */
+interface Status {
+  running: { id: number; startedAt: string } | null;
+  latest: { id: number; createdAt: string } | null;
+  lastFailure: { at: string; error: string } | null;
+  used?: number;
+}
+
+const POLL_MS = 15_000;
+
 export function NewsPanel({
   initial,
   used: initialUsed,
   limit,
   missing,
+  status: initialStatus = null,
   readOnly = false,
 }: {
   initial: NewsBriefView | null;
@@ -178,29 +190,83 @@ export function NewsPanel({
   limit: number;
   /** AI environment variables not set yet (empty = ready) */
   missing: string[];
+  /** briefs being made / the last failure, for the owner (null for visitors) */
+  status?: Status | null;
   /** a visitor of the public site: the latest brief only, no button */
   readOnly?: boolean;
 }) {
+  const router = useRouter();
+  // the brief shown follows the server's whenever the page data is refreshed
+  const [seenInitial, setSeenInitial] = useState(initial);
   const [brief, setBrief] = useState(initial);
+  if (initial !== seenInitial) {
+    setSeenInitial(initial);
+    setBrief(initial);
+  }
   const [used, setUsed] = useState(initialUsed);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState(false);
+  /** a brief is being made in the background (started by this page or elsewhere) */
+  const [running, setRunning] = useState<string | null>(initialStatus?.running?.startedAt ?? null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    initialStatus?.lastFailure ? `รอบล่าสุด (${formatDateTime(new Date(initialStatus.lastFailure.at))}) สรุปไม่สำเร็จ: ${initialStatus.lastFailure.error}` : null,
+  );
   const ready = missing.length === 0;
   const left = Math.max(0, limit - used);
 
+  /** Ask how the background brief is doing; when it is over, show the new brief or why it failed. */
+  const check = useCallback(async () => {
+    try {
+      const res = await apiFetch("/api/news/status", { cache: "no-store" });
+      if (!res.ok) return;
+      const st = (await res.json()) as Status;
+      if (typeof st.used === "number") setUsed(st.used);
+      if (st.running) return; // still working
+      setRunning(null);
+      if (st.latest && st.latest.id !== brief?.id) {
+        setNotice(`สรุปข่าวใหม่เสร็จแล้ว — สรุปเมื่อ ${formatDateTime(new Date(st.latest.createdAt))}`);
+        setError(null);
+        router.refresh(); // loads the new brief into the page
+      } else if (st.lastFailure) {
+        setNotice(null);
+        setError(`สรุปข่าวไม่สำเร็จ: ${st.lastFailure.error}`);
+      } else {
+        setNotice(null);
+      }
+    } catch {
+      // offline or asleep: the next check will tell
+    }
+  }, [brief, router]);
+
+  // While a brief runs: check every 15 s, but only while the page is visible, and at once when it becomes visible again.
+  useEffect(() => {
+    if (!running) return;
+    const tick = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    const timer = setInterval(tick, POLL_MS);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [running, check]);
+
   async function run() {
-    setBusy(true);
+    setRequesting(true);
     setError(null);
+    setNotice(null);
     try {
       const res = await apiFetch("/api/news", { method: "POST" });
-      const body = (await res.json().catch(() => ({}))) as { brief?: NewsBriefView; error?: string; used?: number | null };
+      const body = (await res.json().catch(() => ({}))) as { accepted?: boolean; error?: string; used?: number | null };
       if (typeof body.used === "number") setUsed(body.used);
-      if (!res.ok || !body.brief) throw new Error(body.error ?? `สรุปข่าวไม่สำเร็จ (HTTP ${res.status})`);
-      setBrief(body.brief);
+      if (!res.ok || !body.accepted) throw new Error(body.error ?? `ส่งคำขอไม่สำเร็จ (HTTP ${res.status})`);
+      setRunning(new Date().toISOString());
+      setNotice("ส่งคำขอสรุปข่าวแล้ว — ระบบกำลังเก็บข่าวล่าสุดและให้ AI อ่าน (ราว 1–5 นาที) ปิดหน้านี้หรือสลับไปทำอย่างอื่นได้ เสร็จแล้วสรุปใหม่และเวลาสรุปจะขึ้นที่นี่");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "สรุปข่าวไม่สำเร็จ");
+      setError(err instanceof Error ? err.message : "ส่งคำขอไม่สำเร็จ");
     } finally {
-      setBusy(false);
+      setRequesting(false);
     }
   }
 
@@ -226,11 +292,11 @@ export function NewsPanel({
           <button
             type="button"
             onClick={run}
-            disabled={busy || !ready || left === 0}
+            disabled={requesting || running !== null || !ready || left === 0}
             className="btn-primary"
           >
-            {busy ? <Spinner /> : <NewspaperIcon />}
-            {busy ? "กำลังอ่านข่าว…" : "สรุปข่าวตอนนี้"}
+            {requesting || running ? <Spinner /> : <NewspaperIcon />}
+            {requesting ? "กำลังส่งคำขอ…" : running ? "กำลังสรุปข่าว…" : "สรุปข่าวตอนนี้"}
           </button>
           <span className="text-xs text-muted">
             วันนี้สรุปไปแล้ว <span className="font-mono tabular-nums">{used}/{limit}</span> ครั้ง (รวมรอบอัตโนมัติ)
@@ -240,7 +306,10 @@ export function NewsPanel({
 
       {!readOnly && (
         <div aria-live="polite" className="min-h-5">
-          {busy && <p className="text-sm text-muted">กำลังดึงข่าวล่าสุดและให้ AI อ่าน ปกติ 1–3 นาที อาจนานถึงราว 5 นาที อย่าปิดหน้านี้</p>}
+          {notice && <p className="text-sm text-muted">{notice}</p>}
+          {running && !notice && (
+            <p className="text-sm text-muted">กำลังสรุปข่าวรอบที่เริ่มเมื่อ {formatDateTime(new Date(running))} — เสร็จแล้วจะขึ้นที่นี่เอง</p>
+          )}
           {error && <p className="text-sm text-danger">{error}</p>}
         </div>
       )}
