@@ -129,12 +129,17 @@ export interface StoredBrief {
   skipped?: { model: string; reason: string }[];
 }
 
+/** The function may run 5 minutes: a pending brief older than this was cut off and will never finish. */
+const RUNNING_MINUTES = 6;
+/** Rows that use up the daily limit: successes, and briefs still running. */
+const counts = () => sql()`(status = 'ok' or (status = 'pending' and created_at > now() - make_interval(mins => ${RUNNING_MINUTES})))`;
+
 /** Reserve a brief for `day`, atomically limited to `limit` per day. Returns the id, or null when the limit is used up. */
 export async function startBrief(day: string, trigger: "schedule" | "manual", model: string, limit: number): Promise<number | null> {
   const rows = await sql()<{ id: number }[]>`
     insert into news_briefs (day, trigger, model)
     select ${day}::date, ${trigger}::text, ${model}::text
-    where (select count(*) from news_briefs where day = ${day}::date) < ${limit}::int
+    where (select count(*) from news_briefs where day = ${day}::date and ${counts()}) < ${limit}::int
     returning id::int as id`;
   return rows[0]?.id ?? null;
 }
@@ -147,8 +152,9 @@ export async function finishBrief(id: number, o: { model: string; windowFrom: Da
     where id = ${id}`;
 }
 
-export async function cancelBrief(id: number) {
-  await sql()`delete from news_briefs where id = ${id}`;
+/** Keep a failed brief with its (user-safe) reason: it no longer counts toward the daily limit. */
+export async function failBrief(id: number, error: string) {
+  await sql()`update news_briefs set status = 'failed', error = ${error.slice(0, 500)} where id = ${id} and status = 'pending'`;
 }
 
 /** A brief (finished or still running) started in the last `minutes`: another run is under way or just done. */
@@ -158,8 +164,43 @@ export async function briefStartedWithin(minutes: number): Promise<boolean> {
 }
 
 export async function briefsOnDay(day: string): Promise<number> {
-  const rows = await sql()<{ n: number }[]>`select count(*)::int as n from news_briefs where day = ${day}::date`;
+  const rows = await sql()<{ n: number }[]>`select count(*)::int as n from news_briefs where day = ${day}::date and ${counts()}`;
   return rows[0]?.n ?? 0;
+}
+
+export interface BriefStatus {
+  /** a brief being made now (pending, younger than RUNNING_MINUTES) */
+  running: { id: number; startedAt: string } | null;
+  /** the newest successful brief */
+  latest: { id: number; createdAt: string } | null;
+  /** a failure newer than the latest success (in the last day), with its reason */
+  lastFailure: { at: string; error: string } | null;
+}
+
+/** What the news page polls while a brief is being made in the background. */
+export async function briefStatus(): Promise<BriefStatus> {
+  const db = sql();
+  const [running, latest, failed] = await Promise.all([
+    db<{ id: number; created_at: Date }[]>`
+      select id::int as id, created_at from news_briefs
+      where status = 'pending' and created_at > now() - make_interval(mins => ${RUNNING_MINUTES}) order by id desc limit 1`,
+    db<{ id: number; created_at: Date }[]>`select id::int as id, created_at from news_briefs where status = 'ok' order by id desc limit 1`,
+    db<{ created_at: Date; error: string | null; stale: boolean }[]>`
+      select created_at, error, status = 'pending' as stale from news_briefs
+      where (status = 'failed' or (status = 'pending' and created_at <= now() - make_interval(mins => ${RUNNING_MINUTES})))
+        and created_at > now() - interval '1 day'
+      order by id desc limit 1`,
+  ]);
+  const ok = latest[0] ?? null;
+  const f = failed[0] ?? null;
+  return {
+    running: running[0] ? { id: running[0].id, startedAt: running[0].created_at.toISOString() } : null,
+    latest: ok ? { id: ok.id, createdAt: ok.created_at.toISOString() } : null,
+    lastFailure:
+      f && (!ok || f.created_at > ok.created_at)
+        ? { at: f.created_at.toISOString(), error: f.stale ? "หมดเวลา (งานใช้นานเกิน 5 นาทีและถูกหยุด)" : (f.error ?? "สรุปข่าวไม่สำเร็จ") }
+        : null,
+  };
 }
 
 interface BriefRow {

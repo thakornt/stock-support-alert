@@ -1,6 +1,6 @@
 import { NewsPanel } from "@/components/NewsPanel";
 import { config } from "@/lib/config";
-import { briefsOnDay, latestBrief } from "@/lib/db/news";
+import { briefsOnDay, briefStatus, latestBrief } from "@/lib/db/news";
 import { nyToday } from "@/lib/market/calendar";
 import { PAGE_DATA_TIMEOUT_MS, withTimeout } from "@/lib/timeout";
 import { isOwner } from "@/lib/viewer";
@@ -16,5 +16,6 @@ export default async function NewsPage() {
     "load the last news brief",
   );
   if (!(await isOwner())) return <NewsPanel initial={latest} used={0} limit={0} missing={[]} readOnly />;
-  return <NewsPanel initial={latest} used={used} limit={config.news.dailyLimit()} missing={config.ai.missing()} />;
+  const status = await withTimeout(briefStatus(), PAGE_DATA_TIMEOUT_MS, "news brief status").catch(() => null);
+  return <NewsPanel initial={latest} used={used} limit={config.news.dailyLimit()} missing={config.ai.missing()} status={status} />;
 }

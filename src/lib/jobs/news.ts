@@ -6,7 +6,8 @@ import {
   articlesBetween,
   articlesWithoutBody,
   briefStartedWithin,
-  cancelBrief,
+  briefStatus,
+  failBrief,
   finishBrief,
   getBrief,
   listCompanyNames,
@@ -141,7 +142,7 @@ export async function briefCatchUpDue(now = new Date()): Promise<boolean> {
   return !(await briefStartedWithin(10));
 }
 
-export type NewsErrorCode = "not_configured" | "no_symbols" | "no_news" | "limit" | "timeout" | "ai" | "parse";
+export type NewsErrorCode = "not_configured" | "no_symbols" | "no_news" | "limit" | "busy" | "timeout" | "ai" | "parse";
 
 /** `message` is user-safe (shown on the page). */
 export class NewsError extends Error {
@@ -172,14 +173,39 @@ export interface BriefOptions {
   /** scheduled runs: run even on a non-trading day or a second time the same day */
   force?: boolean;
   now?: Date;
+  /** a brief already reserved by requestNewsBrief (the page's button): use it instead of reserving one */
+  reservedId?: number;
+}
+
+/** Any error as the user-safe NewsError the page shows (and the brief row keeps). */
+function asNewsError(err: unknown): NewsError {
+  if (err instanceof NewsError) return err;
+  if (err instanceof AnalysisParseError) return new NewsError(`${err.message} — ลองใหม่อีกครั้ง (หรือเลือกโมเดลที่ทำตามคำสั่งได้ดีกว่า)`, "parse");
+  if (err instanceof AiError) return new NewsError(err.message, err.kind === "timeout" ? "timeout" : "ai");
+  console.error("news brief failed", err);
+  return new NewsError("สรุปข่าวไม่สำเร็จ ลองใหม่อีกครั้ง", "ai");
+}
+
+/**
+ * The page's "สรุปข่าวตอนนี้": checks what can be checked at once (settings, a brief already running, the daily limit)
+ * and reserves the brief, so the button answers in a second; the slow part (collect + AI, 1-5 minutes) then runs in the
+ * background with runNewsBrief({ reservedId }) while the page polls briefStatus().
+ */
+export async function requestNewsBrief(now = new Date()): Promise<number> {
+  const missing = config.ai.missing();
+  if (missing.length > 0) throw new NewsError(`ยังไม่ได้ตั้งค่า ${missing.join(", ")} ใน environment variables`, "not_configured");
+  if ((await briefStatus()).running) throw new NewsError("กำลังสรุปข่าวอยู่แล้ว รอผลสักครู่", "busy");
+  const id = await startBrief(nyToday(now), "manual", config.ai.models()[0], config.news.dailyLimit());
+  if (id === null) throw new NewsError(`สรุปข่าวครบ ${config.news.dailyLimit()} ครั้งของวันนี้แล้ว (ปรับได้ด้วย NEWS_DAILY_LIMIT)`, "limit");
+  return id;
 }
 
 /**
  * Collect the latest news, have the AI explain how it bears on each tracked stock, and store the brief. The scheduled
- * run (before the open) happens once per trading day; `null` = nothing to do. A run counts toward NEWS_DAILY_LIMIT only
- * if it produced a brief.
+ * run (before the open) happens once per trading day; `null` = nothing to do. A brief that fails is kept as failed with
+ * the reason (it does not count toward NEWS_DAILY_LIMIT).
  */
-export async function runNewsBrief({ trigger, force = false, now = new Date() }: BriefOptions): Promise<NewsBriefView | null> {
+export async function runNewsBrief({ trigger, force = false, now = new Date(), reservedId }: BriefOptions): Promise<NewsBriefView | null> {
   const started = Date.now();
   const missing = config.ai.missing();
   if (missing.length > 0) throw new NewsError(`ยังไม่ได้ตั้งค่า ${missing.join(", ")} ใน environment variables`, "not_configured");
@@ -190,29 +216,31 @@ export async function runNewsBrief({ trigger, force = false, now = new Date() }:
     if ((await lastRunDay("news-brief")) === day) return null;
   }
 
-  // fresh news first; a manual run keeps more of its time for the AI
-  // the hourly collection has just run, so a minute is enough: the AI keeps most of the function's 300 s
-  const collected = await collectNews(now, { budgetMs: 60_000 }).catch((err) => {
-    console.error("news collect failed", err);
-    return null;
-  });
-  if (collected) console.log("news collect", JSON.stringify(collected));
-
-  const tracked: TrackedName[] = (await listCompanyNames()).map((t) => ({ symbol: t.symbol, companyName: t.name }));
-  if (tracked.length === 0) throw new NewsError("ยังไม่มีหุ้นที่ track — เพิ่มที่หน้าจัดการหุ้นก่อน", "no_symbols");
-  const { from, to } = briefWindow(now);
-  const selection = selectArticles(await articlesBetween(from, to), tracked, {
-    ...DEFAULT_SELECT,
-    perStock: config.news.perStock(),
-    maxChars: config.news.maxChars(),
-  });
-  if (selection.articles.length === 0) throw new NewsError("ไม่มีข่าวใหม่ในช่วงนี้ให้สรุป", "no_news");
-
-  const models = config.ai.models();
-  const id = await startBrief(day, trigger, models[0], config.news.dailyLimit());
-  if (id === null) throw new NewsError(`สรุปข่าวครบ ${config.news.dailyLimit()} ครั้งของวันนี้แล้ว (ปรับได้ด้วย NEWS_DAILY_LIMIT)`, "limit");
-
+  let id: number | null = reservedId ?? null;
   try {
+    // the hourly collection has just run, so a minute is enough: the AI keeps most of the function's 300 s
+    const collected = await collectNews(now, { budgetMs: 60_000 }).catch((err) => {
+      console.error("news collect failed", err);
+      return null;
+    });
+    if (collected) console.log("news collect", JSON.stringify(collected));
+
+    const tracked: TrackedName[] = (await listCompanyNames()).map((t) => ({ symbol: t.symbol, companyName: t.name }));
+    if (tracked.length === 0) throw new NewsError("ยังไม่มีหุ้นที่ track — เพิ่มที่หน้าจัดการหุ้นก่อน", "no_symbols");
+    const { from, to } = briefWindow(now);
+    const selection = selectArticles(await articlesBetween(from, to), tracked, {
+      ...DEFAULT_SELECT,
+      perStock: config.news.perStock(),
+      maxChars: config.news.maxChars(),
+    });
+    if (selection.articles.length === 0) throw new NewsError("ไม่มีข่าวใหม่ในช่วงนี้ให้สรุป", "no_news");
+
+    const models = config.ai.models();
+    if (id === null) {
+      id = await startBrief(day, trigger, models[0], config.news.dailyLimit());
+      if (id === null) throw new NewsError(`สรุปข่าวครบ ${config.news.dailyLimit()} ครั้งของวันนี้แล้ว (ปรับได้ด้วย NEWS_DAILY_LIMIT)`, "limit");
+    }
+
     const timeoutMs = FUNCTION_BUDGET_MS - (Date.now() - started);
     if (timeoutMs < MIN_AI_MS) throw new AiError("เวลาไม่พอเรียก AI หลังเก็บข่าว ลองใหม่อีกครั้ง", "timeout");
     const reply = await chat({ system: NEWS_SYSTEM_PROMPT, user: buildNewsPrompt(selection, tracked, from, to), models, timeoutMs });
@@ -243,14 +271,9 @@ export async function runNewsBrief({ trigger, force = false, now = new Date() }:
     if (!view) throw new Error("news brief row missing after save");
     return view;
   } catch (err) {
-    const error =
-      err instanceof AnalysisParseError
-        ? new NewsError(`${err.message} — ลองใหม่อีกครั้ง (หรือเลือกโมเดลที่ทำตามคำสั่งได้ดีกว่า)`, "parse")
-        : err instanceof AiError
-          ? new NewsError(err.message, err.kind === "timeout" ? "timeout" : "ai")
-          : new NewsError("สรุปข่าวไม่สำเร็จ ลองใหม่อีกครั้ง", "ai");
-    if (!(err instanceof AiError) && !(err instanceof AnalysisParseError)) console.error("news brief failed", err);
-    await cancelBrief(id).catch((e) => console.error("could not give back the failed brief", e));
+    const error = asNewsError(err);
+    const failed = id;
+    if (failed !== null) await failBrief(failed, error.message).catch((e: unknown) => console.error("could not record the failed brief", e));
     throw error;
   }
 }
